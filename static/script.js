@@ -619,14 +619,14 @@ function createRowEl(rowData) {
         if (!row?.hash) return;
         btnExtract.textContent = 'Extracting…';
         btnExtract.disabled = true;
-        await triggerExtractAim(row.hash, rowId);
+        await triggerExtractAim(row.hash, rowId, true);
         btnExtract.textContent = 'Extract from PDF';
         btnExtract.disabled = false;
     });
 
     function refreshExtractBtn() {
         const row = getRow();
-        const show = !isAutoAim() && !!row?.hash;
+        const show = !!row?.hash;
         btnExtract.classList.toggle('hidden', !show);
     }
     $('auto-aim-toggle').addEventListener('change', refreshExtractBtn);
@@ -716,7 +716,7 @@ bulkPdfInput.addEventListener('change', async e => {
 });
 
 // ── Extract Aim ───────────────────────────────────────────────────────────────
-async function triggerExtractAim(hash, rowId) {
+async function triggerExtractAim(hash, rowId, force = false) {
     try {
         const res  = await fetch('/api/extract-aim', {
             method:  'POST',
@@ -732,7 +732,7 @@ async function triggerExtractAim(hash, rowId) {
                 const titlePrev  = el.querySelector('.title-preview');
                 const labelInput = el.querySelector('.label-input');
 
-                if (data.aim && titleInput && !titleInput.value) {
+                if (data.aim && titleInput && (force || !titleInput.value)) {
                     titleInput.value = data.aim;
                     titlePrev.textContent = data.aim;
                     titlePrev.classList.remove('italic','text-muted');
