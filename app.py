@@ -98,9 +98,21 @@ def inspect_pdf_info(pdf_path):
                     info["is_assignment"] = True if 'ass' in type_str else False
                     break
 
-            # 2. Extract Aim text
+            # 2. Extract Aim text or Title from PDF text
             aim_lines = []
             capture = False
+            
+            # First check for "Experiment X: <Title>" or "Assignment X: <Title>" header line
+            for line in lines[:15]:
+                exp_title_match = re.search(r'\b(?:Exp|Experiment|Assgn|Assignment)[\s\-_.]*\d+[\s:_.\-]+\s*(.+)$', line, re.IGNORECASE)
+                if exp_title_match:
+                    found_title = exp_title_match.group(1).strip()
+                    # If it's a valid descriptive title (not just numbers or short codes)
+                    if len(found_title) > 3 and not found_title.lower().startswith(('date', 'roll', 'name')):
+                        info["aim"] = found_title
+                        break
+
+            # If no Experiment X: Title found, or to prefer explicit "Aim:" tag
             for line in lines:
                 m_aim = re.match(r'^(?:Aim|AIM|Title|TITLE|Objective|OBJECTIVE)[\s:]*(.*)$', line, re.IGNORECASE)
                 if m_aim:
@@ -108,13 +120,20 @@ def inspect_pdf_info(pdf_path):
                     val = m_aim.group(1).strip()
                     if val:
                         aim_lines.append(val)
+                        # If the line already ends with a period or complete statement, don't over-capture subsequent paragraph text
+                        if val.endswith('.'):
+                            break
                 elif capture:
-                    if re.match(r'^\d+\.|\bObjectives\b|\bTheory\b|\bProcedure\b|\bApparatus\b', line, re.IGNORECASE):
+                    # Stop boundaries: Step, Task, Objectives, Theory, Procedure, etc.
+                    if re.search(r'^\s*(?:Step|Task|Section|Phase|\d+\.|\bObjectives?\b|\bTheory\b|\bProcedure\b|\bApparatus\b|\bPrerequisites\b|\bRequirements\b|\bIntroduction\b|\bOverview\b|\bDescription\b)', line, re.IGNORECASE):
                         break
                     aim_lines.append(line)
-            aim = ' '.join(aim_lines)
-            if aim:
-                info["aim"] = aim
+                    if line.endswith('.'):
+                        break
+
+            clean_aim = ' '.join(aim_lines).strip()
+            if clean_aim:
+                info["aim"] = clean_aim
         doc.close()
     except Exception as e:
         print(f"Warning: Could not inspect PDF {pdf_path}: {e}")
