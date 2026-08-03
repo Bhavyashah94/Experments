@@ -4,11 +4,13 @@
 // ── Constants ─────────────────────────────────────────────────────────────────
 const PROFILES_KEY = 'lab_header_profiles_v1';
 const CURRENT_PROFILE_KEY = 'lab_header_current_profile';
+const COLOR_HISTORY_KEY = 'lab_header_color_history_v1';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 // rows: Map<rowId, { rowId, label, is_assignment, title, perf_date, sub_date, hash, filename, size, pages }>
 const rows = new Map();
 let currentProfile = 'Default';
+let currentTextColor = '#0000bf'; // Default Royal Blue Hex
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -26,7 +28,14 @@ const globalSubDate    = $('global-sub-date');
 const btnApplyDates    = $('btn-apply-global-dates');
 const btnWeeklyDates   = $('btn-weekly-increment-dates');
 
+const colorPreviewSwatch  = $('color-preview-swatch');
+const nativeColorPicker   = $('native-color-picker');
+const hexColorInput       = $('hex-color-input');
+const recentColorsContainer = $('recent-colors-container');
+const recentColorsList      = $('recent-colors-list');
+
 const bulkPdfInput     = $('bulk-pdf-input');
+const btnRemoveAllCards= $('btn-remove-all-cards');
 const btnToggleCards   = $('btn-toggle-all-cards');
 
 const btnZipHeader     = $('btn-download-zip');
@@ -56,6 +65,18 @@ function showToast(msg, duration = 3000) {
     toastTimer = setTimeout(() => toast.classList.add('hidden'), duration);
 }
 
+function normalizeHex(hex) {
+    if (!hex) return null;
+    let clean = hex.trim().replace(/^#/, '');
+    if (clean.length === 3) {
+        clean = clean.split('').map(c => c + c).join('');
+    }
+    if (/^[0-9a-fA-F]{6}$/.test(clean)) {
+        return '#' + clean.toLowerCase();
+    }
+    return null;
+}
+
 function collectStudent() {
     return {
         name:                  $('student-name').value.trim(),
@@ -64,7 +85,7 @@ function collectStudent() {
         class_name:            $('class-name').value.trim(),
         sem:                   $('sem').value.trim(),
         subject:               $('subject').value.trim(),
-        text_color:            $('text-color').value,
+        text_color:            currentTextColor,
         strikethrough_enabled: $('strikethrough-toggle').checked,
     };
 }
@@ -76,7 +97,92 @@ function updateDocSummary() {
     docCountBadge.textContent = `${n} card${n !== 1 ? 's' : ''}`;
     emptyHint.classList.toggle('hidden', n > 0);
     btnToggleCards.classList.toggle('hidden', n === 0);
+    if (btnRemoveAllCards) btnRemoveAllCards.classList.toggle('hidden', n === 0);
 }
+
+// ── Color Manager & History ──────────────────────────────────────────────────
+function getColorHistory() {
+    try {
+        return JSON.parse(localStorage.getItem(COLOR_HISTORY_KEY)) || [];
+    } catch { return []; }
+}
+
+function addColorToHistory(hex) {
+    const norm = normalizeHex(hex);
+    if (!norm) return;
+    let history = getColorHistory().filter(c => c !== norm);
+    history.unshift(norm);
+    if (history.length > 5) history = history.slice(0, 5);
+    try {
+        localStorage.setItem(COLOR_HISTORY_KEY, JSON.stringify(history));
+    } catch {}
+    renderRecentColors();
+}
+
+function renderRecentColors() {
+    const history = getColorHistory();
+    if (!history.length) {
+        recentColorsContainer.classList.add('hidden');
+        return;
+    }
+    recentColorsContainer.classList.remove('hidden');
+    recentColorsList.innerHTML = '';
+    history.forEach(hex => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'w-5 h-5 rounded-full border border-white/20 hover:scale-110 transition shrink-0';
+        btn.style.backgroundColor = hex;
+        btn.title = hex;
+        btn.addEventListener('click', () => updateActiveColor(hex, true));
+        recentColorsList.appendChild(btn);
+    });
+}
+
+function updateActiveColor(colorVal, addToHistory = false) {
+    const norm = normalizeHex(colorVal) || '#0000bf';
+    currentTextColor = norm;
+
+    // Update Swatch & Hex text input
+    if (colorPreviewSwatch) colorPreviewSwatch.style.backgroundColor = norm;
+    if (nativeColorPicker) nativeColorPicker.value = norm;
+    hexColorInput.value = norm.replace('#', '').toUpperCase();
+
+    if (addToHistory) {
+        addColorToHistory(norm);
+    }
+    saveCurrentProfileState();
+}
+
+// Color Control Listeners
+hexColorInput.addEventListener('input', () => {
+    const norm = normalizeHex(hexColorInput.value);
+    if (norm) {
+        updateActiveColor(norm, false);
+    }
+});
+
+hexColorInput.addEventListener('change', () => {
+    const norm = normalizeHex(hexColorInput.value);
+    if (norm) {
+        updateActiveColor(norm, true);
+    }
+});
+
+if (nativeColorPicker) {
+    nativeColorPicker.addEventListener('input', e => {
+        updateActiveColor(e.target.value, false);
+    });
+    nativeColorPicker.addEventListener('change', e => {
+        updateActiveColor(e.target.value, true);
+    });
+}
+
+document.querySelectorAll('.btn-color-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const color = btn.dataset.color;
+        if (color) updateActiveColor(color, true);
+    });
+});
 
 // ── Subject Profile Persistence ──────────────────────────────────────────────
 function getSavedProfiles() {
@@ -139,7 +245,7 @@ function loadProfileState(name) {
             $('class-name').value            = s.class_name || '';
             $('sem').value                   = s.sem || '';
             $('subject').value               = s.subject || '';
-            $('text-color').value            = s.text_color || 'blue';
+            updateActiveColor(s.text_color || '#0000bf', false);
             $('strikethrough-toggle').checked = s.strikethrough_enabled !== false;
         }
         if (data.autoAim !== undefined) $('auto-aim-toggle').checked = data.autoAim;
@@ -189,7 +295,7 @@ btnDeleteProfile.addEventListener('click', () => {
 });
 
 // Auto save state on inputs
-['student-name','roll-no','batch','class-name','sem','subject','text-color','strikethrough-toggle','auto-aim-toggle','global-perf-date','global-sub-date']
+['student-name','roll-no','batch','class-name','sem','subject','strikethrough-toggle','auto-aim-toggle','global-perf-date','global-sub-date']
     .forEach(id => {
         const el = $(id);
         if (el) el.addEventListener('input', saveCurrentProfileState);
@@ -268,7 +374,7 @@ btnWeeklyDates.addEventListener('click', () => {
     showToast('Weekly +7 days schedule auto-filled across all cards');
 });
 
-// ── Card Toggle (Collapse / Expand All) ───────────────────────────────────────
+// ── Card Controls (Remove All / Collapse / Expand All) ────────────────────────
 let allCardsOpen = true;
 btnToggleCards.addEventListener('click', () => {
     allCardsOpen = !allCardsOpen;
@@ -281,6 +387,19 @@ btnToggleCards.addEventListener('click', () => {
     btnToggleCards.textContent = allCardsOpen ? 'Collapse All' : 'Expand All';
 });
 
+if (btnRemoveAllCards) {
+    btnRemoveAllCards.addEventListener('click', () => {
+        if (!rows.size) return;
+        if (!confirm(`Are you sure you want to remove all ${rows.size} document cards?`)) return;
+
+        rows.clear();
+        docsList.innerHTML = '';
+        updateDocSummary();
+        saveCurrentProfileState();
+        showToast('Removed all document cards');
+    });
+}
+
 // ── Row / Card Builder ────────────────────────────────────────────────────────
 function createRowEl(rowData) {
     const { rowId, label = '1', is_assignment = false, title = '',
@@ -290,7 +409,6 @@ function createRowEl(rowData) {
     const el = clone.querySelector('[data-rowid]');
     el.dataset.rowid = rowId;
 
-    // Elements
     const header     = el.querySelector('.acc-header');
     const content    = el.querySelector('.acc-content');
     const chevron    = el.querySelector('.chevron');
@@ -442,16 +560,21 @@ function createRowEl(rowData) {
                 updatePageBadge(upData.pages || 0);
                 setUploadState('done');
                 saveCurrentProfileState();
-                if (isAutoAim() && !titleInput.value) {
+                if (isAutoAim()) {
                     if (upData.aim) {
                         titleInput.value = upData.aim;
                         titlePrev.textContent = upData.aim;
                         titlePrev.classList.remove('italic','text-muted');
                         if (row) row.title = upData.aim;
-                        saveCurrentProfileState();
-                    } else {
-                        triggerExtractAim(upData.hash, rowId);
                     }
+                    if (upData.exp_num && labelInput) {
+                        labelInput.value = upData.exp_num;
+                        if (row) row.label = upData.exp_num;
+                    }
+                    if (upData.is_assignment !== null && upData.is_assignment !== undefined) {
+                        setType(upData.is_assignment);
+                    }
+                    saveCurrentProfileState();
                 }
             } else {
                 uploadErrText.textContent = upData.error || 'Upload failed.';
@@ -593,20 +716,33 @@ async function triggerExtractAim(hash, rowId) {
             body:    JSON.stringify({ hash }),
         });
         const data = await res.json();
-        if (data.success && data.aim) {
+        if (data.success) {
             const el = docsList.querySelector(`[data-rowid="${rowId}"]`);
             if (el) {
+                const row = rows.get(rowId);
                 const titleInput = el.querySelector('.title-input');
                 const titlePrev  = el.querySelector('.title-preview');
-                if (titleInput && !titleInput.value) {
+                const labelInput = el.querySelector('.label-input');
+
+                if (data.aim && titleInput && !titleInput.value) {
                     titleInput.value = data.aim;
                     titlePrev.textContent = data.aim;
                     titlePrev.classList.remove('italic','text-muted');
-                    const row = rows.get(rowId);
                     if (row) row.title = data.aim;
-                    saveCurrentProfileState();
-                    showToast('Aim detected and filled.');
                 }
+
+                if (data.exp_num && labelInput) {
+                    labelInput.value = data.exp_num;
+                    if (row) row.label = data.exp_num;
+                }
+
+                if (data.is_assignment !== null && data.is_assignment !== undefined) {
+                    const btnType = data.is_assignment ? el.querySelector('.type-assgn-btn') : el.querySelector('.type-exp-btn');
+                    if (btnType) btnType.click();
+                }
+
+                saveCurrentProfileState();
+                showToast('Detected Aim & Document Info from PDF.');
             }
         }
     } catch {}
@@ -710,11 +846,13 @@ $('btn-add-row').addEventListener('click', () => {
     addRow();
 });
 
-// ── Clear All ─────────────────────────────────────────────────────────────────
+// ── Clear All with Confirmation ────────────────────────────────────────────────
 $('btn-clear').addEventListener('click', () => {
+    if (!confirm('Are you sure you want to clear all student details and document cards for this profile?')) return;
+
     ['student-name','roll-no','batch','class-name','sem','subject','global-perf-date','global-sub-date']
         .forEach(id => $(id).value = '');
-    $('text-color').value = 'blue';
+    updateActiveColor('#0000bf', false);
     $('strikethrough-toggle').checked = true;
     $('auto-aim-toggle').checked = false;
 
@@ -755,7 +893,6 @@ async function generate(downloadZip = false) {
             btnZipHeader.classList.remove('hidden');
             btnZipBottom.classList.remove('hidden');
 
-            // Show individual download buttons on rows
             data.files.forEach(f => {
                 const targetRow = [...rows.values()].find(r => r.label === f.label);
                 if (targetRow) {
@@ -801,6 +938,7 @@ btnZipBottom.addEventListener('click', () => {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 function init() {
+    renderRecentColors();
     const savedCurrent = localStorage.getItem(CURRENT_PROFILE_KEY) || 'Default';
     loadProfileState(savedCurrent);
 }

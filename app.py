@@ -80,22 +80,36 @@ def parse_color(color_val):
     return (0.0, 0.0, 0.75)
 
 def inspect_pdf_info(pdf_path):
-    """Extract Aim/Title text and total page count from an experiment PDF."""
-    info = {"aim": None, "pages": 0}
+    """Extract Aim/Title text, Experiment/Assignment number, type, and total page count from an experiment PDF."""
+    info = {"aim": None, "pages": 0, "exp_num": None, "is_assignment": None}
     try:
         doc = fitz.open(pdf_path)
         info["pages"] = len(doc)
         if len(doc) > 0:
             text = doc[0].get_text()
             lines = [l.strip() for l in text.splitlines() if l.strip()]
+
+            # 1. Detect Exp/Assgn Number and Type from PDF text
+            for line in lines[:15]:
+                match = re.search(r'\b(Exp|Experiment|Assgn|Assignment)[\s\-_.]*(?:No|Num|Number)?[\s:_.]*(\d+[a-z]?)\b', line, re.IGNORECASE)
+                if match:
+                    type_str = match.group(1).lower()
+                    info["exp_num"] = match.group(2)
+                    info["is_assignment"] = True if 'ass' in type_str else False
+                    break
+
+            # 2. Extract Aim text
             aim_lines = []
             capture = False
             for line in lines:
-                if line.startswith('Aim:'):
+                m_aim = re.match(r'^(?:Aim|AIM|Title|TITLE|Objective|OBJECTIVE)[\s:]*(.*)$', line, re.IGNORECASE)
+                if m_aim:
                     capture = True
-                    aim_lines.append(line[4:].strip())
+                    val = m_aim.group(1).strip()
+                    if val:
+                        aim_lines.append(val)
                 elif capture:
-                    if re.match(r'^\d+\.|\bObjectives\b', line):
+                    if re.match(r'^\d+\.|\bObjectives\b|\bTheory\b|\bProcedure\b|\bApparatus\b', line, re.IGNORECASE):
                         break
                     aim_lines.append(line)
             aim = ' '.join(aim_lines)
@@ -289,14 +303,16 @@ def upload_file():
         "hash": actual_hash,
         "size": len(data),
         "pages": info.get("pages", 0),
-        "aim": info.get("aim")
+        "aim": info.get("aim"),
+        "exp_num": info.get("exp_num"),
+        "is_assignment": info.get("is_assignment")
     })
 
 # ── Extract aim & PDF info ───────────────────────────────────────────────────
 
 @app.route("/api/extract-aim", methods=["POST"])
 def extract_aim():
-    """Extract aim/title text and page count from an uploaded PDF identified by SHA-256 hash."""
+    """Extract aim/title text, exp_num, type, and page count from an uploaded PDF identified by SHA-256 hash."""
     req = request.get_json() or {}
     h   = (req.get('hash') or '').lower().strip()
     if not _valid_hash(h):
@@ -310,7 +326,9 @@ def extract_aim():
     return jsonify({
         "success": True,
         "aim": info.get("aim"),
-        "pages": info.get("pages", 0)
+        "pages": info.get("pages", 0),
+        "exp_num": info.get("exp_num"),
+        "is_assignment": info.get("is_assignment")
     })
 
 # ── Preview ────────────────────────────────────────────────────────────────────
