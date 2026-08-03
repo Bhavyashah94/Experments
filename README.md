@@ -1,3 +1,10 @@
+---
+title: Lab Header Studio
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Lab Header Studio
 
 **Lab Header Studio** is a fast, web application for engineering and college students to generate, customize, and merge standardized lab report header pages with experiment body PDFs.
@@ -52,19 +59,10 @@ Open **`http://localhost:5000`** in your browser.
 
 ## Deployment Options
 
-### Recommended Free & Fast Platforms:
-
-1. **Hugging Face Spaces (100% Free & Fastest Compute)**
-   - **Compute**: 2 vCPUs, 16 GB RAM.
-   - **Stay Awake**: Stays active for 48 hours without sleeping (vs 15 mins on Render).
-   - **Setup**: Create a Docker / Streamlit Space $\rightarrow$ Push repo.
-
-2. **Render.com (Easiest Setup)**
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `gunicorn app:app` (uses included `Procfile`).
-
-3. **Railway.app (1-Click Setup)**
-   - Automatically detects `app.py` and `requirements.txt` with zero configuration.
+### Hugging Face Spaces (Free Docker Host)
+- **SDK**: Docker
+- **App Port**: 7860
+- **RAM**: 16 GB Free
 
 ---
 
