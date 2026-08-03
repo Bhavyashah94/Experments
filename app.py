@@ -327,7 +327,7 @@ def upload_file():
     with open(dest, 'wb') as out:
         out.write(data)
 
-    mode = request.form.get('mode', 'first_period')
+    mode = request.form.get('mode', 'auto')
     info = inspect_pdf_info(dest, mode=mode)
 
     return jsonify({
@@ -347,7 +347,7 @@ def extract_aim():
     """Extract aim/title text, exp_num, type, and page count from an uploaded PDF identified by SHA-256 hash."""
     req = request.get_json() or {}
     h   = (req.get('hash') or '').lower().strip()
-    mode = req.get('mode', 'first_period')
+    mode = req.get('mode', 'auto')
     if not _valid_hash(h):
         return jsonify({"success": False, "error": "Invalid hash"}), 400
 

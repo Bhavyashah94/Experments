@@ -123,12 +123,12 @@ function loadGlobalStudentInfo() {
 
 function getAimMode() {
     const el = $('aim-extraction-mode');
-    return el ? el.value : 'first_period';
+    return el ? el.value : 'auto';
 }
 
 function setAimMode(mode) {
     const el = $('aim-extraction-mode');
-    if (el) el.value = mode || 'first_period';
+    if (el) el.value = mode || 'auto';
 }
 
 function updateDocSummary() {
