@@ -1,0 +1,73 @@
+# Lab Header Studio
+
+**Lab Header Studio** is a fast, web application for engineering and college students to generate, customize, and merge standardized lab report header pages with experiment body PDFs.
+
+Built with a monochrome studio aesthetic (**Pitch Black `#050505` + Studio Charcoal `#141417`**), zero emojis, and content-addressable SHA-256 PDF processing.
+
+---
+
+## Key Features
+
+- **Zero-Click Card Editing**: Document cards are expanded by default for instant editing.
+- **Auto-Detect Aim & Experiment Number**: Automatically inspects Page 1 of attached PDFs using PyMuPDF regex to extract Aim titles, Experiment/Assignment numbers, and type (`Exp` vs `Assgn`).
+- **Bulk Multi-PDF Upload**: Drag and drop multiple experiment PDFs at once. Automatically creates cards, parses numbers, and extracts aims.
+- **Quick Date Presets & Weekly Increment**: Set Global Performance and Submission dates and use **`+7 Days Weekly Auto-Fill`** to auto-fill sequential dates across all cards.
+- **Hex Color & Ink Controls**: Custom Hex color text field (`#0000BF`), clickable color picker swatch, 6 quick preset swatches (Royal Blue, Navy, Pure Black, Crimson, Emerald, Violet), and persistent recently used color history saved in `localStorage`.
+- **Subject Profile Persistence**: Save and switch between subject profiles (e.g. *IoT Lab*, *Cloud Computing*) stored in browser local storage.
+- **Content-Addressable PDF Store (SHA-256)**: Computes SHA-256 hashes client-side to eliminate duplicate uploads, with a background thread running a **24-hour TTL sweep** on server files.
+- **ZIP Package & Merged PDF Exports**: Generate single merged PDFs or export all documents into a clean `All_Documents_Package.zip`.
+
+---
+
+## Tech Stack
+
+- **Backend**: Python 3, Flask, PyMuPDF (`fitz`), Gunicorn
+- **Frontend**: HTML5, Vanilla JavaScript (ES6+), Tailwind CSS, Flowbite
+- **Typography**: Inter & JetBrains Mono (Google Fonts)
+- **State Management**: `localStorage` (Profiles & Color History) + SHA-256 client hashing (`crypto.subtle`)
+
+---
+
+## Getting Started Locally
+
+### 1. Prerequisites
+- Python 3.9 or higher
+
+### 2. Installation & Setup
+```bash
+# Clone the repository
+git clone https://github.com/Bhavyashah94/Experments.git
+cd Experments
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the Flask development server
+python app.py
+```
+
+Open **`http://localhost:5000`** in your browser.
+
+---
+
+## Deployment Options
+
+### Recommended Free & Fast Platforms:
+
+1. **Hugging Face Spaces (100% Free & Fastest Compute)**
+   - **Compute**: 2 vCPUs, 16 GB RAM.
+   - **Stay Awake**: Stays active for 48 hours without sleeping (vs 15 mins on Render).
+   - **Setup**: Create a Docker / Streamlit Space $\rightarrow$ Push repo.
+
+2. **Render.com (Easiest Setup)**
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `gunicorn app:app` (uses included `Procfile`).
+
+3. **Railway.app (1-Click Setup)**
+   - Automatically detects `app.py` and `requirements.txt` with zero configuration.
+
+---
+
+## License
+
+MIT License. Built for students & researchers.
