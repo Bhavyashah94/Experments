@@ -213,10 +213,12 @@ function refreshProfileDropdown() {
 }
 
 function saveCurrentProfileState() {
+    saveGlobalStudentInfo();
     const profiles = getSavedProfiles();
     profiles[currentProfile] = {
         student: collectStudent(),
         autoAim: isAutoAim(),
+        aimMode: getAimMode(),
         globalPerf: globalPerfDate.value.trim(),
         globalSub:  globalSubDate.value.trim(),
         rows: [...rows.values()],
@@ -236,15 +238,20 @@ function loadProfileState(name) {
     rows.clear();
     docsList.innerHTML = '';
 
+    // First load global personal info so name/roll/batch/class/sem stay intact across subjects
+    loadGlobalStudentInfo();
+
     if (data) {
         if (data.student) {
             const s = data.student;
-            $('student-name').value          = s.name || '';
-            $('roll-no').value               = s.roll_no || '';
-            $('batch').value                 = s.batch || '';
-            $('class-name').value            = s.class_name || '';
-            $('sem').value                   = s.sem || '';
-            $('subject').value               = s.subject || '';
+            // Only override if stored specifically for this profile, otherwise keep global
+            if (s.name)       $('student-name').value = s.name;
+            if (s.roll_no)    $('roll-no').value    = s.roll_no;
+            if (s.batch)      $('batch').value      = s.batch;
+            if (s.class_name) $('class-name').value = s.class_name;
+            if (s.sem)        $('sem').value        = s.sem;
+
+            $('subject').value = s.subject || '';
             updateActiveColor(s.text_color || '#0000bf', false);
             $('strikethrough-toggle').checked = s.strikethrough_enabled !== false;
         }
@@ -546,6 +553,7 @@ function createRowEl(rowData) {
             const fd = new FormData();
             fd.append('file', file);
             fd.append('hash', hash);
+            fd.append('mode', getAimMode());
             const upRes  = await fetch('/api/upload', { method: 'POST', body: fd });
             const upData = await upRes.json();
 
@@ -713,7 +721,7 @@ async function triggerExtractAim(hash, rowId) {
         const res  = await fetch('/api/extract-aim', {
             method:  'POST',
             headers: {'Content-Type':'application/json'},
-            body:    JSON.stringify({ hash }),
+            body:    JSON.stringify({ hash, mode: getAimMode() }),
         });
         const data = await res.json();
         if (data.success) {
@@ -935,6 +943,35 @@ btnZipBottom.addEventListener('click', () => {
     if (lastZipFile) window.location.href = `/api/download/${lastZipFile}`;
     else generate(true);
 });
+
+// ── Format Tips Modal & Aim Mode Listeners ────────────────────────────────────
+const aimModeSelect  = $('aim-extraction-mode');
+const btnFormatTips  = $('btn-format-tips');
+const modalFormatTips= $('modal-format-tips');
+const btnCloseTips   = $('btn-close-format-tips');
+const btnGotItTips    = $('btn-got-it-format-tips');
+
+if (aimModeSelect) {
+    aimModeSelect.addEventListener('change', () => {
+        saveCurrentProfileState();
+        showToast(`Aim Mode set to: ${aimModeSelect.options[aimModeSelect.selectedIndex].text}`);
+    });
+}
+
+if (btnFormatTips && modalFormatTips) {
+    btnFormatTips.addEventListener('click', () => modalFormatTips.classList.remove('hidden'));
+}
+if (btnCloseTips && modalFormatTips) {
+    btnCloseTips.addEventListener('click', () => modalFormatTips.classList.add('hidden'));
+}
+if (btnGotItTips && modalFormatTips) {
+    btnGotItTips.addEventListener('click', () => modalFormatTips.classList.add('hidden'));
+}
+if (modalFormatTips) {
+    modalFormatTips.addEventListener('click', e => {
+        if (e.target === modalFormatTips) modalFormatTips.classList.add('hidden');
+    });
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 function init() {

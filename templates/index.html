@@ -199,19 +199,31 @@
                             <div id="recent-colors-list" class="flex items-center gap-1.5"></div>
                         </div>
 
-                        <!-- Checkboxes -->
-                        <div class="flex items-center gap-4 ml-auto pt-1 sm:pt-0">
+                        <!-- Checkboxes & Aim Settings -->
+                        <div class="flex flex-wrap items-center gap-3 ml-auto pt-1 sm:pt-0">
                             <label class="flex items-center gap-2 cursor-pointer select-none">
                                 <input type="checkbox" id="strikethrough-toggle" checked
                                     class="w-4 h-4 rounded border-border bg-inputBg text-zinc-200 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-white" />
                                 <span class="text-xs text-subtle">Strikethrough unused type</span>
                             </label>
 
-                            <label class="flex items-center gap-2 cursor-pointer select-none">
-                                <input type="checkbox" id="auto-aim-toggle"
-                                    class="w-4 h-4 rounded border-border bg-inputBg text-zinc-200 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-white" />
-                                <span class="text-xs text-subtle">Auto-detect aim from PDF</span>
-                            </label>
+                            <div class="flex items-center gap-2 border-l border-border pl-3">
+                                <label class="flex items-center gap-2 cursor-pointer select-none">
+                                    <input type="checkbox" id="auto-aim-toggle"
+                                        class="w-4 h-4 rounded border-border bg-inputBg text-zinc-200 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-white" />
+                                    <span class="text-xs text-subtle">Auto-detect aim</span>
+                                </label>
+
+                                <select id="aim-extraction-mode" class="bg-inputBg border border-border text-xs text-zinc-300 rounded-md px-2 py-1 focus:border-zinc-400 outline-none transition cursor-pointer">
+                                    <option value="first_period">First Full Stop (.)</option>
+                                    <option value="header_title">Header Title Line</option>
+                                    <option value="auto">Auto-Combine</option>
+                                </select>
+
+                                <button id="btn-format-tips" type="button" class="text-xs text-zinc-400 hover:text-white underline transition px-1" title="PDF Format Tips">
+                                    Format Guide
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -419,8 +431,46 @@
         </div>
     </template>
 
+    <!-- PDF Formatting Guide Modal -->
+    <div id="modal-format-tips" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm hidden p-4">
+        <div class="bg-card border border-border rounded-xl max-w-lg w-full p-6 space-y-4 text-zinc-100 shadow-2xl relative">
+            <div class="flex items-center justify-between border-b border-border pb-3">
+                <h3 class="text-sm font-semibold text-white tracking-tight uppercase">PDF Formatting Guide</h3>
+                <button id="btn-close-format-tips" type="button" class="text-muted hover:text-white text-lg leading-none transition">&times;</button>
+            </div>
+
+            <div class="space-y-3.5 text-xs leading-relaxed text-zinc-300">
+                <p>To ensure 100% accurate auto-detection of Aim, Experiment Number, and Type from your PDFs, follow these simple guidelines on Page 1 of your PDF:</p>
+
+                <div class="bg-inputBg border border-border rounded-lg p-3 space-y-2 font-mono">
+                    <p class="text-white font-semibold">Option A: First Full Stop Method</p>
+                    <p class="text-muted">End your Aim statement with a period (.) on line 1 of the Aim:</p>
+                    <p class="text-zinc-200">Aim: To Install and Set Up Flutter and Android Studio.</p>
+                </div>
+
+                <div class="bg-inputBg border border-border rounded-lg p-3 space-y-2 font-mono">
+                    <p class="text-white font-semibold">Option B: Header Title Method</p>
+                    <p class="text-muted">Place your Experiment/Assignment title directly on line 1 or 2:</p>
+                    <p class="text-zinc-200">Experiment 1: Installing and Setting Up Flutter and Android Studio</p>
+                </div>
+
+                <div class="bg-inputBg border border-border rounded-lg p-3 space-y-2 font-mono">
+                    <p class="text-white font-semibold">Automatic Exp/Assgn Number &amp; Type Detection</p>
+                    <p class="text-zinc-200">Exp No. 3  ->  Auto-sets Number 3 &amp; Experiment Type</p>
+                    <p class="text-zinc-200">Assgn 2    ->  Auto-sets Number 2 &amp; Assignment Type</p>
+                </div>
+            </div>
+
+            <div class="pt-2 flex justify-end">
+                <button id="btn-got-it-format-tips" type="button" class="bg-white text-black font-semibold text-xs px-4 py-2 rounded-lg hover:bg-zinc-200 transition">
+                    Got it
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Flowbite JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
-    <script src="/static/script.js?v=17.0"></script>
+    <script src="/static/script.js?v=18.0"></script>
 </body>
 </html>

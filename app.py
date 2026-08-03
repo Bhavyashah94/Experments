@@ -79,7 +79,7 @@ def parse_color(color_val):
             pass
     return (0.0, 0.0, 0.75)
 
-def inspect_pdf_info(pdf_path):
+def inspect_pdf_info(pdf_path, mode='first_period'):
     """Extract Aim/Title text, Experiment/Assignment number, type, and total page count from an experiment PDF."""
     info = {"aim": None, "pages": 0, "exp_num": None, "is_assignment": None}
     try:
@@ -98,21 +98,21 @@ def inspect_pdf_info(pdf_path):
                     info["is_assignment"] = True if 'ass' in type_str else False
                     break
 
-            # 2. Extract Aim text or Title from PDF text
-            aim_lines = []
-            capture = False
-            
-            # First check for "Experiment X: <Title>" or "Assignment X: <Title>" header line
+            # Method B: Header Title Line Extraction
+            header_title = None
             for line in lines[:15]:
                 exp_title_match = re.search(r'\b(?:Exp|Experiment|Assgn|Assignment)[\s\-_.]*\d+[\s:_.\-]+\s*(.+)$', line, re.IGNORECASE)
                 if exp_title_match:
                     found_title = exp_title_match.group(1).strip()
-                    # If it's a valid descriptive title (not just numbers or short codes)
                     if len(found_title) > 3 and not found_title.lower().startswith(('date', 'roll', 'name')):
-                        info["aim"] = found_title
+                        header_title = found_title
                         break
 
-            # If no Experiment X: Title found, or to prefer explicit "Aim:" tag
+            # Method A: First Full Stop Method (Aim: ...)
+            aim_first_period = None
+            aim_lines = []
+            capture = False
+
             for line in lines:
                 m_aim = re.match(r'^(?:Aim|AIM|Title|TITLE|Objective|OBJECTIVE)[\s:]*(.*)$', line, re.IGNORECASE)
                 if m_aim:
@@ -120,18 +120,32 @@ def inspect_pdf_info(pdf_path):
                     val = m_aim.group(1).strip()
                     if val:
                         aim_lines.append(val)
+                        if '.' in val:
+                            break
                 elif capture:
-                    # Stop boundaries: Step, Task, Section, Phase, Theory, Procedure, Apparatus, Prerequisites, Requirements, Introduction, Guide/Overview, or numbered sections (1.)
                     if re.search(r'^\s*(?:Step|Task|Section|Phase|Part|\d+\.|\bObjectives?\b|\bTheory\b|\bProcedure\b|\bApparatus\b|\bPrerequisites\b|\bRequirements\b|\bIntroduction\b|\bOverview\b|\bDescription\b|\bGuide\b|\bNote\b|\bRoll\b|\bDate\b)', line, re.IGNORECASE):
                         break
-                    # Length safety cap to prevent capturing entire body paragraphs
-                    if sum(len(x) for x in aim_lines) + len(line) > 250:
-                        break
                     aim_lines.append(line)
+                    if '.' in line:
+                        break
 
-            clean_aim = ' '.join(aim_lines).strip()
-            if clean_aim:
-                info["aim"] = clean_aim
+            full_aim_text = ' '.join(aim_lines).strip()
+            if full_aim_text:
+                # Extract up to the first full stop
+                period_pos = full_aim_text.find('.')
+                if period_pos != -1:
+                    aim_first_period = full_aim_text[:period_pos + 1].strip()
+                else:
+                    aim_first_period = full_aim_text
+
+            # Apply requested mode logic
+            if mode == 'header_title':
+                info["aim"] = header_title or aim_first_period
+            elif mode == 'first_period':
+                info["aim"] = aim_first_period or header_title
+            else: # auto
+                info["aim"] = aim_first_period or header_title
+
         doc.close()
     except Exception as e:
         print(f"Warning: Could not inspect PDF {pdf_path}: {e}")
@@ -313,7 +327,8 @@ def upload_file():
     with open(dest, 'wb') as out:
         out.write(data)
 
-    info = inspect_pdf_info(dest)
+    mode = request.form.get('mode', 'first_period')
+    info = inspect_pdf_info(dest, mode=mode)
 
     return jsonify({
         "success": True,
@@ -332,6 +347,7 @@ def extract_aim():
     """Extract aim/title text, exp_num, type, and page count from an uploaded PDF identified by SHA-256 hash."""
     req = request.get_json() or {}
     h   = (req.get('hash') or '').lower().strip()
+    mode = req.get('mode', 'first_period')
     if not _valid_hash(h):
         return jsonify({"success": False, "error": "Invalid hash"}), 400
 
@@ -339,7 +355,7 @@ def extract_aim():
     if not os.path.exists(fpath):
         return jsonify({"success": False, "error": "File not found — may have expired"}), 404
 
-    info = inspect_pdf_info(fpath)
+    info = inspect_pdf_info(fpath, mode=mode)
     return jsonify({
         "success": True,
         "aim": info.get("aim"),
