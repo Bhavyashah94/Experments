@@ -1,0 +1,71 @@
+/* Monochrome Black & White Theme Custom Overrides */
+
+:root {
+    --bg-surface: #050505;
+    --bg-card: #121215;
+    --border-color: #27272a;
+}
+
+body {
+    background-color: var(--bg-surface);
+    color: #fafafa;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #050505;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #27272a;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #3f3f46;
+}
+
+/* Smooth Accordion Height */
+.acc-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.acc-content.open {
+    max-height: 1200px;
+}
+
+.chevron {
+    transition: transform 0.2s ease;
+}
+
+.chevron.open {
+    transform: rotate(180deg);
+}
+
+/* Focus outline adjustments */
+input:focus, select:focus {
+    border-color: #71717a !important;
+}
+
+/* Modal animation */
+#preview-modal > div {
+    animation: modalIn 0.2s ease-out;
+}
+
+@keyframes modalIn {
+    from {
+        opacity: 0;
+        transform: scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

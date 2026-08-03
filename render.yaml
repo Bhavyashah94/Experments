@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: experiment-header-filler
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true

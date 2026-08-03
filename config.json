@@ -1,0 +1,27 @@
+{
+  "student": {
+    "name": "",
+    "roll_no": "",
+    "batch": "",
+    "class_name": "",
+    "sem": "",
+    "subject": ""
+  },
+  "dates": {
+    "performance_date": "",
+    "submission_date": ""
+  },
+  "formatting": {
+    "strikethrough_enabled": true,
+    "text_color": "blue",
+    "font_size": 11,
+    "font_name": "helv"
+  },
+  "output": {
+    "output_dir": "output",
+    "combine_all_experiments": true,
+    "combined_pdf_name": "All_Documents_Combined.pdf",
+    "copy_combined_to_root": true
+  },
+  "experiments": []
+}

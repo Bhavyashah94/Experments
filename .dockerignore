@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+.gitignore
+.env
+venv/
+env/
+.venv/
+output/*.pdf
+output/headers/*.pdf
+preview_*.png
+test_*.png
