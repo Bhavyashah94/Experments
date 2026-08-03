@@ -120,16 +120,14 @@ def inspect_pdf_info(pdf_path):
                     val = m_aim.group(1).strip()
                     if val:
                         aim_lines.append(val)
-                        # If the line already ends with a period or complete statement, don't over-capture subsequent paragraph text
-                        if val.endswith('.'):
-                            break
                 elif capture:
-                    # Stop boundaries: Step, Task, Objectives, Theory, Procedure, etc.
-                    if re.search(r'^\s*(?:Step|Task|Section|Phase|\d+\.|\bObjectives?\b|\bTheory\b|\bProcedure\b|\bApparatus\b|\bPrerequisites\b|\bRequirements\b|\bIntroduction\b|\bOverview\b|\bDescription\b)', line, re.IGNORECASE):
+                    # Stop boundaries: Step, Task, Section, Phase, Theory, Procedure, Apparatus, Prerequisites, Requirements, Introduction, Guide/Overview, or numbered sections (1.)
+                    if re.search(r'^\s*(?:Step|Task|Section|Phase|Part|\d+\.|\bObjectives?\b|\bTheory\b|\bProcedure\b|\bApparatus\b|\bPrerequisites\b|\bRequirements\b|\bIntroduction\b|\bOverview\b|\bDescription\b|\bGuide\b|\bNote\b|\bRoll\b|\bDate\b)', line, re.IGNORECASE):
+                        break
+                    # Length safety cap to prevent capturing entire body paragraphs
+                    if sum(len(x) for x in aim_lines) + len(line) > 250:
                         break
                     aim_lines.append(line)
-                    if line.endswith('.'):
-                        break
 
             clean_aim = ' '.join(aim_lines).strip()
             if clean_aim:
