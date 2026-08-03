@@ -35,6 +35,7 @@ const recentColorsContainer = $('recent-colors-container');
 const recentColorsList      = $('recent-colors-list');
 
 const bulkPdfInput     = $('bulk-pdf-input');
+const btnAddRow        = $('btn-add-row');
 const btnRemoveAllCards= $('btn-remove-all-cards');
 const btnToggleCards   = $('btn-toggle-all-cards');
 
@@ -404,6 +405,33 @@ if (btnRemoveAllCards) {
         updateDocSummary();
         saveCurrentProfileState();
         showToast('Removed all document cards');
+    });
+}
+
+function addRow(rowData) {
+    const data = rowData || {
+        rowId:         uid(),
+        label:         String(rows.size + 1),
+        is_assignment: false,
+        title:         '',
+        perf_date:     globalPerfDate ? globalPerfDate.value.trim() : '',
+        sub_date:      globalSubDate  ? globalSubDate.value.trim()  : '',
+        hash:          null,
+        filename:      null,
+        pages:         0
+    };
+    rows.set(data.rowId, data);
+    const el = createRowEl(data);
+    docsList.appendChild(el);
+    updateDocSummary();
+    saveCurrentProfileState();
+    return el;
+}
+
+if (btnAddRow) {
+    btnAddRow.addEventListener('click', () => {
+        const el = addRow();
+        showToast('Added document card');
     });
 }
 
