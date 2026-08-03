@@ -5,6 +5,7 @@
 const PROFILES_KEY = 'lab_header_profiles_v1';
 const CURRENT_PROFILE_KEY = 'lab_header_current_profile';
 const COLOR_HISTORY_KEY = 'lab_header_color_history_v1';
+const GLOBAL_STUDENT_KEY = 'lab_header_global_student_v1';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 // rows: Map<rowId, { rowId, label, is_assignment, title, perf_date, sub_date, hash, filename, size, pages }>
@@ -92,6 +93,43 @@ function collectStudent() {
 }
 
 function isAutoAim() { return $('auto-aim-toggle').checked; }
+
+// ── Global Student Info Helpers ───────────────────────────────────────────────
+function saveGlobalStudentInfo() {
+    const info = {
+        name:       $('student-name').value.trim(),
+        roll_no:    $('roll-no').value.trim(),
+        batch:      $('batch').value.trim(),
+        class_name: $('class-name').value.trim(),
+        sem:        $('sem').value.trim(),
+    };
+    try {
+        localStorage.setItem(GLOBAL_STUDENT_KEY, JSON.stringify(info));
+    } catch {}
+}
+
+function loadGlobalStudentInfo() {
+    try {
+        const info = JSON.parse(localStorage.getItem(GLOBAL_STUDENT_KEY));
+        if (info) {
+            if (info.name)       $('student-name').value = info.name;
+            if (info.roll_no)    $('roll-no').value      = info.roll_no;
+            if (info.batch)      $('batch').value        = info.batch;
+            if (info.class_name) $('class-name').value   = info.class_name;
+            if (info.sem)        $('sem').value          = info.sem;
+        }
+    } catch {}
+}
+
+function getAimMode() {
+    const el = $('aim-extraction-mode');
+    return el ? el.value : 'first_period';
+}
+
+function setAimMode(mode) {
+    const el = $('aim-extraction-mode');
+    if (el) el.value = mode || 'first_period';
+}
 
 function updateDocSummary() {
     const n = rows.size;
@@ -257,6 +295,7 @@ function loadProfileState(name) {
             $('strikethrough-toggle').checked = s.strikethrough_enabled !== false;
         }
         if (data.autoAim !== undefined) $('auto-aim-toggle').checked = data.autoAim;
+        if (data.aimMode !== undefined) setAimMode(data.aimMode);
         if (data.globalPerf !== undefined) globalPerfDate.value = data.globalPerf;
         if (data.globalSub !== undefined)  globalSubDate.value = data.globalSub;
 
@@ -266,9 +305,9 @@ function loadProfileState(name) {
                 addRow(r);
             });
             verifyUploadHashes();
-            return;
         }
     }
+    updateDocSummary();
 }
 
 // Profile Actions
@@ -405,33 +444,6 @@ if (btnRemoveAllCards) {
         updateDocSummary();
         saveCurrentProfileState();
         showToast('Removed all document cards');
-    });
-}
-
-function addRow(rowData) {
-    const data = rowData || {
-        rowId:         uid(),
-        label:         String(rows.size + 1),
-        is_assignment: false,
-        title:         '',
-        perf_date:     globalPerfDate ? globalPerfDate.value.trim() : '',
-        sub_date:      globalSubDate  ? globalSubDate.value.trim()  : '',
-        hash:          null,
-        filename:      null,
-        pages:         0
-    };
-    rows.set(data.rowId, data);
-    const el = createRowEl(data);
-    docsList.appendChild(el);
-    updateDocSummary();
-    saveCurrentProfileState();
-    return el;
-}
-
-if (btnAddRow) {
-    btnAddRow.addEventListener('click', () => {
-        const el = addRow();
-        showToast('Added document card');
     });
 }
 
@@ -742,6 +754,38 @@ bulkPdfInput.addEventListener('change', async e => {
     }
     bulkPdfInput.value = '';
 });
+// ── Single Download ───────────────────────────────────────────────────────────
+async function downloadSingle(row) {
+    const student = collectStudent();
+    if (!student.name) { showToast('Please fill in student details first.'); return; }
+
+    const item = {
+        label:         row.label,
+        is_assignment: row.is_assignment,
+        title:         row.title,
+        perf_date:     row.perf_date,
+        sub_date:      row.sub_date,
+        hash:          row.hash || null,
+    };
+
+    showToast('Generating PDF…', 10000);
+    try {
+        const res  = await fetch('/api/generate', {
+            method:  'POST',
+            headers: {'Content-Type':'application/json'},
+            body:    JSON.stringify({ student, experiments: [item] }),
+        });
+        const data = await res.json();
+        if (data.success && data.files?.length) {
+            showToast('Done! Downloading PDF…');
+            window.location.href = `/api/download/${data.files[0].merged_pdf}`;
+        } else {
+            showToast('Error: ' + (data.error || 'Generation failed.'));
+        }
+    } catch(e) {
+        showToast('Request failed: ' + e.message);
+    }
+}
 
 // ── Extract Aim ───────────────────────────────────────────────────────────────
 async function triggerExtractAim(hash, rowId, force = false) {
