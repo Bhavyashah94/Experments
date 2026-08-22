@@ -89,9 +89,9 @@ def inspect_pdf_info(pdf_path, mode='first_period'):
             text = doc[0].get_text()
             lines = [l.strip() for l in text.splitlines() if l.strip()]
 
-            # 1. Detect Exp/Assgn Number and Type from PDF text
+            # 1. Detect Exp/Assign Number and Type from PDF text
             for line in lines[:15]:
-                match = re.search(r'\b(Exp|Experiment|Assgn|Assignment)[\s\-_.]*(?:No|Num|Number)?[\s:_.]*(\d+[a-z]?)\b', line, re.IGNORECASE)
+                match = re.search(r'\b(Exp|Experiment|Assign|Assgn|Assignment)[\s\-_.]*(?:No|Num|Number)?[\s:_.]*(\d+[a-z]?)\b', line, re.IGNORECASE)
                 if match:
                     type_str = match.group(1).lower()
                     info["exp_num"] = match.group(2)
@@ -101,7 +101,7 @@ def inspect_pdf_info(pdf_path, mode='first_period'):
             # Method B: Header Title Line Extraction
             header_title = None
             for line in lines[:15]:
-                exp_title_match = re.search(r'\b(?:Exp|Experiment|Assgn|Assignment)[\s\-_.]*\d+[\s:_.\-]+\s*(.+)$', line, re.IGNORECASE)
+                exp_title_match = re.search(r'\b(?:Exp|Experiment|Assign|Assgn|Assignment)[\s\-_.]*\d+[\s:_.\-]+\s*(.+)$', line, re.IGNORECASE)
                 if exp_title_match:
                     found_title = exp_title_match.group(1).strip()
                     if len(found_title) > 3 and not found_title.lower().startswith(('date', 'roll', 'name')):
@@ -428,7 +428,7 @@ def generate_pdfs():
     for item in experiments:
         label     = str(item.get('label', item.get('num', '?')))
         is_assgn  = item.get("is_assignment", False)
-        exp_label = f"Assgn - {label}" if is_assgn else f"Exp - {label}"
+        exp_label = f"Assign - {label}" if is_assgn else f"Exp - {label}"
 
         data = {
             'sem':        student.get("sem", ""),
@@ -458,7 +458,7 @@ def generate_pdfs():
             merged_doc.insert_pdf(body_doc)
             body_doc.close()
 
-        type_prefix = "Assgn" if is_assgn else "Exp"
+        type_prefix = "Assign" if is_assgn else "Exp"
         merged_filename  = f"{type_prefix}_{safe_label}_with_Header.pdf"
         merged_out       = os.path.join(OUTPUT_DIR, merged_filename)
         merged_doc.save(merged_out)
