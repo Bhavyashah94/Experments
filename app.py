@@ -374,7 +374,7 @@ def preview_header():
     student     = req_data.get("student", {})
     is_assgn    = item_data.get("is_assignment", False)
     label       = str(item_data.get("label", item_data.get("num", "1")))
-    exp_label   = f"Assgn - {label}" if is_assgn else f"Exp - {label}"
+    exp_label   = f"Assign - {label}" if is_assgn else f"Exp - {label}"
 
     data = {
         'sem':        student.get("sem", ""),
