@@ -509,7 +509,7 @@ function createRowEl(rowData) {
     function setType(isAssignment) {
         const row = getRow();
         if (row) row.is_assignment = isAssignment;
-        badge.textContent = isAssignment ? 'Assgn' : 'Exp';
+        badge.textContent = isAssignment ? 'Assign' : 'Exp';
         badge.className = `type-badge text-xs font-bold font-mono px-2 py-0.5 rounded shrink-0 ${
             isAssignment ? 'bg-zinc-900 border border-zinc-700 text-zinc-300' : 'bg-zinc-800 border border-border text-zinc-200'}`;
         typeExpBtn.className   = `type-exp-btn px-3 py-1.5 transition text-xs font-medium ${!isAssignment ? 'bg-white text-black font-semibold' : 'bg-surface text-muted hover:text-white'}`;

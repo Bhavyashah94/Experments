@@ -262,7 +262,7 @@ def main():
             is_assignment = custom_exp_cfg.get("is_assignment", False)
             
         doc_type_str = "Assignment" if is_assignment else "Experiment"
-        label_str = f"Assgn - {i}" if is_assignment else f"Exp - {i}"
+        label_str = f"Assign - {i}" if is_assignment else f"Exp - {i}"
         
         data = {
             'sem': sem,
