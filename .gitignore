@@ -1,21 +1,53 @@
-# Byte-compiled / optimized / DLL files
+# ── Python & Bytecode ───────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
 
-# Environments
+# ── Virtual Environments ───────────────────────────────────────────
 .venv/
 venv/
 ENV/
+env/
+.env
 
-# App output and upload directories
+# ── Test & Coverage Caches ──────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage/
+tests/screenshots/
+*.png
+
+# ── Node.js & Frontend Build ────────────────────────────────────────
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+dist/
+.eslintcache
+
+# ── Application Runtime Storage & Generated Files ───────────────────
 output/
 uploads/
 *.pdf
+*.zip
 !Header.pdf
+!frontend/public/Header.pdf
 
-# OS & IDE metadata
+# ── Logs & Debugging ────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── OS & IDE Metadata ───────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+*.swp
+*.swo

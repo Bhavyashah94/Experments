@@ -1,13 +1,13 @@
 ---
-title: Lab Header Studio
+title: LabStudio
 sdk: docker
 app_port: 7860
 pinned: false
 ---
 
-# Lab Header Studio
+# LabStudio
 
-**Lab Header Studio** is a fast, web application for engineering and college students to generate, customize, and merge standardized lab report header pages with experiment body PDFs.
+**LabStudio** is a fast web application for engineering and college students to generate, customize, and merge standardized lab report header pages with experiment body PDFs.
 
 Built with a monochrome studio aesthetic (**Pitch Black `#050505` + Studio Charcoal `#141417`**), zero emojis, and content-addressable SHA-256 PDF processing.
 
@@ -66,6 +66,14 @@ Open **`http://localhost:5000`** in your browser.
 
 ---
 
+## Authors
+
+- **Bhavya Shah** — [@Bhavyashah94](https://github.com/Bhavyashah94)
+- **Antigravity** — Advanced Agentic Coding
+
+---
+
 ## License
 
 MIT License. Built for students & researchers.
+
