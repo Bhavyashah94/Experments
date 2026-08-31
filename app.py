@@ -189,8 +189,11 @@ def index():
 @app.route("/assets/<path:filename>")
 def serve_spa_assets(filename):
     spa_assets_dir = os.path.join(BASE_DIR, "frontend", "dist", "assets")
-    if os.path.exists(spa_assets_dir):
+    if os.path.exists(os.path.join(spa_assets_dir, filename)):
         return send_from_directory(spa_assets_dir, filename)
+    static_assets_dir = os.path.join(BASE_DIR, "static", "assets")
+    if os.path.exists(os.path.join(static_assets_dir, filename)):
+        return send_from_directory(static_assets_dir, filename)
     return ("Asset not found", 404)
 
 
