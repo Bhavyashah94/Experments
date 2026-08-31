@@ -177,7 +177,7 @@ onUnmounted(() => {
         <!-- EXPORT TAB -->
         <div v-if="activeTab === 'export'" class="space-y-4">
           <div class="bg-inputBg/60 border border-border/80 rounded-xl p-3.5 text-zinc-300 space-y-1">
-            <p class="font-semibold text-white">✨ Ready to share "{{ profileStore.activeProfile.name }}"</p>
+            <p class="font-semibold text-white">Ready to share "{{ profileStore.activeProfile.name }}"</p>
             <p class="text-[11px] text-muted">
               Only subject details, experiment aims, and dates are shared. Your personal Name and Roll Number are kept private.
             </p>
@@ -221,7 +221,7 @@ onUnmounted(() => {
         <!-- IMPORT TAB -->
         <div v-else class="space-y-4">
           <div class="bg-inputBg/60 border border-border/80 rounded-xl p-3.5 text-zinc-300 space-y-1">
-            <p class="font-semibold text-white">📥 Load a Classmate's Profile</p>
+            <p class="font-semibold text-white">Load a Classmate's Profile</p>
             <p class="text-[11px] text-muted">
               Paste the JSON shared by your classmate or upload a <code class="text-zinc-200">.json</code> file to import all experiment titles and dates.
             </p>
