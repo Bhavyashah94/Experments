@@ -17,6 +17,8 @@ def test_index_route(client):
     res = client.get("/")
     assert res.status_code == 200
     assert b"LabStudio" in res.data or b"Lab Header" in res.data
+    assert "no-cache" in res.headers.get("Cache-Control", "")
+    assert "no-store" in res.headers.get("Cache-Control", "")
 
 
 def test_serve_spa_assets(client):
@@ -27,6 +29,7 @@ def test_serve_spa_assets(client):
         if files:
             res = client.get(f"/assets/{files[0]}")
             assert res.status_code == 200
+            assert "immutable" in res.headers.get("Cache-Control", "")
 
 
 def test_load_defaults(client):

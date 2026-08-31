@@ -177,6 +177,25 @@ def _valid_hash(h: Optional[str]) -> bool:
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
+@app.after_request
+def set_cache_headers(response):
+    """
+    Industry-standard cache policy:
+    1. HTML documents: Never cache (no-cache, no-store, must-revalidate).
+       Ensures students immediately get new code without hard-refreshing.
+    2. Static hashed assets (/assets/*): Cache immutably for 1 year.
+       Vite generates content hashes (e.g. index-1IoDWZ5N.js), so new builds automatically
+       point to new URLs while returning visitors load instantly.
+    """
+    if response.mimetype in ("text/html", "application/json"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    elif request.path.startswith("/assets/"):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
+
+
 @app.route("/")
 def index():
     # If a pre-built SPA dist exists, serve it, otherwise render legacy index.html

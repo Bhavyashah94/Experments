@@ -1,6 +1,11 @@
 (() => {
 'use strict';
 
+// Auto-upgrade legacy browser caches to modern Vue 3 SPA
+if (!document.getElementById('app') || document.getElementById('app').children.length === 0) {
+  window.location.reload();
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 const PROFILES_KEY = 'lab_header_profiles_v1';
 const CURRENT_PROFILE_KEY = 'lab_header_current_profile';
