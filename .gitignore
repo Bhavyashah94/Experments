@@ -24,9 +24,7 @@ tests/screenshots/
 # ── Node.js & Frontend Build ────────────────────────────────────────
 node_modules/
 frontend/node_modules/
-frontend/dist/
 frontend/.vite/
-dist/
 .eslintcache
 
 # ── Application Runtime Storage & Generated Files ───────────────────
