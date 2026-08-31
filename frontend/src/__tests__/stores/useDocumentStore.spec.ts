@@ -83,12 +83,17 @@ describe('useDocumentStore Pinia Store', () => {
     expect(store.documents[2].subDate).toBe('22/03/2026');
   });
 
-  it('clears all documents to empty array with clearAllDocuments', () => {
+  it('clears all documents to empty array with clearAllDocuments and persists across reloads', () => {
     const store = useDocumentStore();
+    const profileStore = useProfileStore();
     store.addDocument();
     expect(store.documents.length).toBe(2);
 
     store.clearAllDocuments();
+    expect(store.documents.length).toBe(0);
+
+    // Simulate page reload by re-loading profile documents
+    store.loadProfileDocuments(profileStore.activeProfileId);
     expect(store.documents.length).toBe(0);
   });
 

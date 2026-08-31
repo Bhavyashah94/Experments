@@ -26,7 +26,7 @@ export const useDocumentStore = defineStore('documents', () => {
     const key = `${STORAGE_KEYS.DOCUMENTS}_${profileId}`;
     const saved = safeLocalStorageGet<DocumentItem[] | null>(key, null);
     isCompiled.value = false;
-    if (saved && Array.isArray(saved) && saved.length > 0) {
+    if (saved !== null && Array.isArray(saved)) {
       documents.value = saved;
     } else {
       documents.value = [
@@ -107,12 +107,20 @@ export const useDocumentStore = defineStore('documents', () => {
     const idx = documents.value.findIndex((d) => d.id === id);
     if (idx !== -1) {
       documents.value.splice(idx, 1);
+      if (profileStore.activeProfileId) {
+        const key = `${STORAGE_KEYS.DOCUMENTS}_${profileStore.activeProfileId}`;
+        safeLocalStorageSet(key, documents.value);
+      }
     }
   }
 
   function clearAllDocuments(): void {
     isCompiled.value = false;
     documents.value = [];
+    if (profileStore.activeProfileId) {
+      const key = `${STORAGE_KEYS.DOCUMENTS}_${profileStore.activeProfileId}`;
+      safeLocalStorageSet(key, []);
+    }
   }
 
   function renumberDocuments(): void {
