@@ -57,8 +57,8 @@ def parse_color(color: Any) -> Tuple[float, float, float]:
 def split_and_scale_title(
     title: str,
     font_name: str = "helv",
-    max_w1: float = 439.0,
-    max_w2: float = 490.0,
+    max_w1: float = 435.0,
+    max_w2: float = 478.0,
     min_font_size: float = 8.0,
     max_font_size: float = 11.0,
     default_fontsize: Optional[float] = None,
@@ -68,8 +68,8 @@ def split_and_scale_title(
 
     :param title: Experiment or assignment title string.
     :param font_name: Base font name recognized by PyMuPDF (default 'helv').
-    :param max_w1: Max printable width on Line 1 in PDF points.
-    :param max_w2: Max printable width on Line 2 in PDF points.
+    :param max_w1: Max printable width on Line 1 in PDF points (106 to 541).
+    :param max_w2: Max printable width on Line 2 in PDF points (63 to 541).
     :param min_font_size: Minimum permissible font size (default 8.0).
     :param max_font_size: Maximum permissible font size (default 11.0).
     :param default_fontsize: Optional alias for max_font_size.
@@ -87,7 +87,6 @@ def split_and_scale_title(
         return (title, "", max_font_size)
 
     words = title.split()
-    best_split = (title, "", min_font_size)
 
     # Search downward from max_font_size to min_font_size
     current_size = max_font_size
@@ -96,16 +95,30 @@ def split_and_scale_title(
         if fitz.get_text_length(title, fontname=font_name, fontsize=current_size) <= max_w1:
             return (title, "", current_size)
 
-        # Try word-chunk splits across two lines
+        # Word-chunk split across two lines
         if len(words) > 1:
-            for split_idx in range(len(words) - 1, 0, -1):
-                l1 = " ".join(words[:split_idx])
-                l2 = " ".join(words[split_idx:])
-                w1 = fitz.get_text_length(l1, fontname=font_name, fontsize=current_size)
-                w2 = fitz.get_text_length(l2, fontname=font_name, fontsize=current_size)
+            line1_words = []
+            line2_words = []
+            w1 = 0
+            for idx, w in enumerate(words):
+                ww = fitz.get_text_length(w + " ", fontname=font_name, fontsize=current_size)
+                if w1 + ww <= max_w1:
+                    line1_words.append(w)
+                    w1 += ww
+                else:
+                    line2_words = words[idx:]
+                    break
 
-                if w1 <= max_w1 and w2 <= max_w2:
-                    return (l1, l2, current_size)
+            str1 = " ".join(line1_words)
+            str2 = " ".join(line2_words)
+            w2 = fitz.get_text_length(str2, fontname=font_name, fontsize=current_size) if line2_words else 0
+
+            if w2 <= max_w2 or current_size <= min_font_size:
+                if w2 > max_w2:
+                    while line2_words and fitz.get_text_length(" ".join(line2_words) + "...", fontname=font_name, fontsize=current_size) > max_w2:
+                        line2_words.pop()
+                    str2 = " ".join(line2_words) + "..."
+                return (str1, str2, current_size)
 
         current_size -= 0.5
 
@@ -174,9 +187,9 @@ def create_filled_header_doc(
     if title_str:
         l1, l2, t_size = split_and_scale_title(title_str, font_name=font_name)
         if l1:
-            page.insert_text((110, 351), l1, fontsize=t_size, fontname=font_name, color=font_color)
+            page.insert_text((106, 351), l1, fontsize=t_size, fontname=font_name, color=font_color)
         if l2:
-            page.insert_text((55, 372), l2, fontsize=t_size, fontname=font_name, color=font_color)
+            page.insert_text((63, 372), l2, fontsize=t_size, fontname=font_name, color=font_color)
 
     # 6. Dates
     page.insert_text((220, 414), str(data.get("perf_date", "")), fontsize=font_size, fontname=font_name, color=font_color)
