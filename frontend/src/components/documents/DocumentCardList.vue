@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import type { DocumentItem } from '@/types/document';
 import Sortable from 'sortablejs';
@@ -21,15 +21,20 @@ const documentStore = useDocumentStore();
 const listRef = ref<HTMLElement | null>(null);
 let sortableInstance: Sortable | null = null;
 
-onMounted(() => {
+function initSortable() {
+  if (sortableInstance) {
+    sortableInstance.destroy();
+    sortableInstance = null;
+  }
   if (listRef.value) {
     sortableInstance = Sortable.create(listRef.value, {
       handle: '.drag-handle',
       animation: 200,
-      delayOnTouchOnly: true,
-      delay: 150,
       ghostClass: 'opacity-40',
       chosenClass: 'scale-[1.01]',
+      dragClass: 'shadow-2xl',
+      fallbackOnBody: true,
+      swapThreshold: 0.65,
       onEnd: (evt) => {
         if (
           evt.oldIndex !== undefined &&
@@ -41,6 +46,27 @@ onMounted(() => {
         }
       },
     });
+  }
+}
+
+watch(
+  () => documentStore.documents.length,
+  async (len) => {
+    if (len > 0) {
+      await nextTick();
+      initSortable();
+    } else if (sortableInstance) {
+      sortableInstance.destroy();
+      sortableInstance = null;
+    }
+  },
+  { immediate: true }
+);
+
+onMounted(async () => {
+  await nextTick();
+  if (documentStore.documents.length > 0) {
+    initSortable();
   }
 });
 

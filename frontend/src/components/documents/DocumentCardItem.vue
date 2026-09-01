@@ -55,14 +55,13 @@ function handleDrop(e: DragEvent) {
       @click="doc.isOpen = !doc.isOpen"
     >
       <!-- Dedicated Drag Handle -->
-      <button
-        type="button"
-        class="drag-handle p-1 text-zinc-500 hover:text-white cursor-grab active:cursor-grabbing shrink-0 touch-none"
+      <div
+        class="drag-handle p-1.5 text-zinc-500 hover:text-white cursor-grab active:cursor-grabbing shrink-0 touch-none rounded hover:bg-zinc-800/80 transition"
         @click.stop
         title="Drag to reorder experiment card"
       >
-        <GripVertical class="w-4 h-4" />
-      </button>
+        <GripVertical class="w-4 h-4 pointer-events-none" />
+      </div>
 
       <!-- Exp / Assign Type Badge -->
       <button
