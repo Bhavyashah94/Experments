@@ -122,4 +122,29 @@ export class ApiService {
     }
     return res.json();
   }
+
+  static async downloadAnalyticsExport(format: 'csv' | 'json', authKey?: string): Promise<void> {
+    const headers: Record<string, string> = {};
+    if (authKey) headers['X-Analytics-Key'] = authKey;
+
+    const res = await fetch(`${API_BASE}/api/analytics/export?format=${format}`, {
+      method: 'GET',
+      headers,
+    });
+
+    if (!res.ok) {
+      throw new Error(`Export failed: ${res.status}`);
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const dateStr = new Date().toISOString().split('T')[0];
+    a.download = `labstudio_analytics_${dateStr}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  }
 }

@@ -4,6 +4,8 @@ Backed by SQLite with indexing for fast queries and zero external dependencies.
 """
 
 import os
+import io
+import csv
 import json
 import sqlite3
 import hmac
@@ -365,3 +367,72 @@ def get_generation_events(
         return rows, total_count
     finally:
         conn.close()
+
+
+def export_analytics_csv(db_path: Optional[str] = None) -> str:
+    """
+    Exports all recorded generation events as standard RFC 4180 CSV string.
+    """
+    events, _ = get_generation_events(limit=100000, offset=0, db_path=db_path)
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Header Row
+    writer.writerow([
+        "Event ID",
+        "Timestamp (UTC)",
+        "Student Name",
+        "Roll Number",
+        "Batch",
+        "Class",
+        "Semester",
+        "Subject",
+        "Experiment Count",
+        "Generation Type",
+        "Status",
+        "Duration (ms)",
+        "Error Message",
+        "Experiments List",
+    ])
+
+    for ev in events:
+        exp_summary_list = []
+        for exp in ev.get("experiments", []):
+            prefix = "Assign" if exp.get("is_assignment") else "Exp"
+            lbl = exp.get("label", "")
+            title = exp.get("title", "")
+            exp_summary_list.append(f"{prefix} {lbl}: {title}" if title else f"{prefix} {lbl}")
+
+        writer.writerow([
+            ev["id"],
+            ev["timestamp"],
+            ev["student_name"],
+            ev["roll_no"],
+            ev["batch"],
+            ev["class_name"],
+            ev["sem"],
+            ev["subject"],
+            ev["experiment_count"],
+            ev["generation_type"],
+            "SUCCESS" if ev["success"] else "FAILED",
+            ev["duration_ms"],
+            ev["error_message"] or "",
+            " | ".join(exp_summary_list),
+        ])
+
+    return output.getvalue()
+
+
+def export_analytics_json(db_path: Optional[str] = None) -> str:
+    """
+    Exports complete analytics metrics and raw events log as structured JSON.
+    """
+    summary = get_analytics_summary(db_path=db_path)
+    events, total = get_generation_events(limit=100000, offset=0, db_path=db_path)
+    payload = {
+        "export_timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "total_records": total,
+        "summary": summary,
+        "events": events,
+    }
+    return json.dumps(payload, indent=2)

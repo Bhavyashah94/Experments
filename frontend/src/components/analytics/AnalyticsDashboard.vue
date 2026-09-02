@@ -16,9 +16,11 @@ import {
   AlertTriangle,
   BarChart2,
   BookOpen,
+  Download,
 } from 'lucide-vue-next';
 
 const isLoading = ref(true);
+const isExporting = ref(false);
 const isAuthRequired = ref(false);
 const isAuthenticated = ref(true);
 const adminPasswordInput = ref('');
@@ -169,6 +171,18 @@ function navigateToStudio(): void {
   window.location.href = '/';
 }
 
+async function handleDownloadExport(format: 'csv' | 'json'): Promise<void> {
+  isExporting.value = true;
+  try {
+    const authKey = getStoredAuthKey();
+    await ApiService.downloadAnalyticsExport(format, authKey);
+  } catch (err) {
+    console.error('Failed to download analytics export:', err);
+  } finally {
+    isExporting.value = false;
+  }
+}
+
 const totalPages = computed(() => Math.ceil(totalEventsCount.value / pageSize) || 1);
 
 const maxDailyCount = computed(() => {
@@ -212,6 +226,31 @@ onMounted(() => {
       </div>
 
       <div class="flex items-center gap-2.5">
+        <!-- Export Buttons (When Authenticated) -->
+        <template v-if="isAuthenticated">
+          <button
+            type="button"
+            @click="handleDownloadExport('csv')"
+            :disabled="isExporting"
+            class="text-xs bg-inputBg hover:bg-zinc-800 text-zinc-300 hover:text-white border border-border px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5 disabled:opacity-50"
+            title="Download full analytics as CSV spreadsheet"
+          >
+            <Download class="w-3.5 h-3.5" />
+            <span>Export CSV</span>
+          </button>
+
+          <button
+            type="button"
+            @click="handleDownloadExport('json')"
+            :disabled="isExporting"
+            class="text-xs bg-inputBg hover:bg-zinc-800 text-zinc-300 hover:text-white border border-border px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5 disabled:opacity-50 hidden sm:inline-flex"
+            title="Download full raw analytics as JSON"
+          >
+            <Download class="w-3.5 h-3.5" />
+            <span>Export JSON</span>
+          </button>
+        </template>
+
         <button
           type="button"
           @click="toggleAutoRefresh"

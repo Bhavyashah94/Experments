@@ -258,3 +258,31 @@ def test_resilience_analytics_failure_does_not_break_generation(client, monkeypa
     data = res.get_json()
     assert data["success"] is True
     assert "zip_file" in data or "combined_pdf" in data
+
+
+def test_export_analytics_csv_and_json(client, test_db_path):
+    record_generation_event(
+        student={"name": "Alice Export", "roll_no": "77", "subject": "Networks"},
+        experiments=[{"label": "1", "title": "Socket Programming"}],
+        success=True,
+        duration_ms=150.0,
+        db_path=test_db_path,
+    )
+
+    # Test CSV export
+    res_csv = client.get("/api/analytics/export?format=csv")
+    assert res_csv.status_code == 200
+    assert "text/csv" in res_csv.content_type
+    csv_text = res_csv.data.decode("utf-8")
+    assert "Alice Export" in csv_text
+    assert "Socket Programming" in csv_text
+    assert "SUCCESS" in csv_text
+
+    # Test JSON export
+    res_json = client.get("/api/analytics/export?format=json")
+    assert res_json.status_code == 200
+    assert "application/json" in res_json.content_type
+    json_data = json.loads(res_json.data.decode("utf-8"))
+    assert json_data["total_records"] == 1
+    assert json_data["events"][0]["student_name"] == "Alice Export"
+

@@ -5,7 +5,7 @@ import hashlib
 import threading
 import shutil
 from typing import Optional
-from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory, Response
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -18,6 +18,8 @@ from lab_core import (
     record_generation_event,
     get_analytics_summary,
     get_generation_events,
+    export_analytics_csv,
+    export_analytics_json,
     is_analytics_enabled,
     is_auth_required,
     verify_admin_password,
@@ -634,6 +636,40 @@ def analytics_events():
                 "offset": offset,
             }
         })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/analytics/export", methods=["GET"])
+@limiter.limit("30 per minute")
+def analytics_export():
+    """Exports usage analytics in CSV or JSON format for download."""
+    is_auth, err_resp = _check_analytics_auth()
+    if not is_auth:
+        return err_resp
+
+    export_format = request.args.get("format", "csv").lower().strip()
+    date_str = time.strftime("%Y-%m-%d")
+
+    try:
+        if export_format == "json":
+            json_data = export_analytics_json()
+            return Response(
+                json_data,
+                mimetype="application/json",
+                headers={
+                    "Content-Disposition": f'attachment; filename="labstudio_analytics_{date_str}.json"'
+                },
+            )
+        else:
+            csv_data = export_analytics_csv()
+            return Response(
+                csv_data,
+                mimetype="text/csv",
+                headers={
+                    "Content-Disposition": f'attachment; filename="labstudio_analytics_{date_str}.csv"'
+                },
+            )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
