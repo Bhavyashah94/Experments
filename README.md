@@ -57,26 +57,6 @@ Open **`http://localhost:5000`** in your browser.
 
 ---
 
-## Usage Analytics (Internal)
-
-LabStudio includes a lightweight, privacy-first, first-party analytics system powered by indexed SQLite storage.
-
-- **Hidden Access Route**: Available directly at `/analytics` (isolated from the student navigation).
-- **Zero Third-Party SDKs**: No Google Analytics, Mixpanel, or external telemetry.
-- **Fail-Safe**: Analytics recording never interrupts or blocks student document generation.
-
-### Environment Configuration (Render / Server)
-
-Configure the following environment variables in Render:
-
-| Variable | Description | Default |
-| :--- | :--- | :--- |
-| `ENABLE_ANALYTICS` | Set `true` to enable or `false` to disable. | `true` (Always enabled) |
-| `ADMIN_PASSWORD` or `ANALYTICS_ADMIN_PASSWORD` | Password required to view the `/analytics` dashboard. | *(None - Open direct access)* |
-| `ANALYTICS_DB_PATH` | Path to the SQLite analytics database file. | `data/analytics.db` |
-
----
-
 ## Authors
 
 - **Bhavya Shah** — [@Bhavyashah94](https://github.com/Bhavyashah94)
