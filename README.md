@@ -60,7 +60,7 @@ Open **`http://localhost:5000`** in your browser.
 ## Authors
 
 - **Bhavya Shah** — [@Bhavyashah94](https://github.com/Bhavyashah94)
-- **Antigravity** — Advanced Agentic Coding
+- **Antigravity** — [Google DeepMind Antigravity](https://antigravity.google)
 
 ---
 

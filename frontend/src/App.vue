@@ -242,7 +242,14 @@ onMounted(async () => {
             Bhavya Shah
           </a>
           <span>&amp;</span>
-          <span class="text-zinc-200 font-medium">Antigravity</span>
+          <a
+            href="https://antigravity.google"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-white hover:underline font-medium hover:text-zinc-200 transition"
+          >
+            Antigravity
+          </a>
         </div>
       </div>
     </footer>
