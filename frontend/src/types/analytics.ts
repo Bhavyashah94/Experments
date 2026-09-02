@@ -64,3 +64,49 @@ export interface AnalyticsEventsResponse {
   limit: number;
   offset: number;
 }
+
+export interface ExtractionDiagnosticsSummary {
+  total_documents: number;
+  success_rate_percent: number;
+  methods: Record<string, number>;
+  failures: Record<string, number>;
+  discrepancies_count: number;
+}
+
+export interface DiagnosticSampleItem {
+  sha256: string;
+  filename: string;
+  file_size: number;
+  pages: number;
+  extracted_aim: string | null;
+  extracted_exp_num: string | null;
+  extraction_method: string;
+  failure_reason: string;
+  student_submitted_title: string | null;
+  student_submitted_num: string | null;
+  discrepancy: number;
+  text_snippet: string;
+  uploaded_at: string;
+  is_sample_preserved: number;
+}
+
+export interface DiagnosticsResponse {
+  summary: ExtractionDiagnosticsSummary;
+  samples: DiagnosticSampleItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ServerStorageStatus {
+  max_bytes: number;
+  used_bytes: number;
+  percent_used: number;
+}
+
+export interface ServerHealthResponse {
+  status: string;
+  version?: string;
+  uptime_seconds?: number;
+  storage?: ServerStorageStatus;
+}

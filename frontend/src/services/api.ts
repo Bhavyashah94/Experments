@@ -147,4 +147,47 @@ export class ApiService {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
   }
+
+  static async getAnalyticsDiagnostics(
+    params: { limit?: number; offset?: number } = {},
+    authKey?: string
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    const query = new URLSearchParams();
+    if (params.limit) query.set('limit', String(params.limit));
+    if (params.offset) query.set('offset', String(params.offset));
+
+    const headers: Record<string, string> = {};
+    if (authKey) headers['X-Analytics-Key'] = authKey;
+
+    const res = await fetch(`${API_BASE}/api/analytics/diagnostics?${query.toString()}`, {
+      method: 'GET',
+      headers,
+    });
+    if (res.status === 401) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    return res.json();
+  }
+
+  static async downloadDiagnosticSample(hash: string, authKey?: string): Promise<void> {
+    const headers: Record<string, string> = {};
+    if (authKey) headers['X-Analytics-Key'] = authKey;
+
+    const res = await fetch(`${API_BASE}/api/analytics/sample/${hash}`, {
+      method: 'GET',
+      headers,
+    });
+    if (!res.ok) {
+      throw new Error(`Sample download failed: ${res.status}`);
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sample_${hash.slice(0, 10)}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  }
 }

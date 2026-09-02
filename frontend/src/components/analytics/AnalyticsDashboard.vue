@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { ApiService } from '@/services/api';
-import type { AnalyticsSummary, GenerationEventItem } from '@/types/analytics';
+import FormatDiscoveryLab from './FormatDiscoveryLab.vue';
+import type {
+  AnalyticsSummary,
+  GenerationEventItem,
+} from '@/types/analytics';
+import type { ApiHealthResponse } from '@/types/api';
 import {
   Activity,
   Users,
@@ -17,6 +22,8 @@ import {
   BarChart2,
   BookOpen,
   Download,
+  HardDrive,
+  Compass,
 } from 'lucide-vue-next';
 
 const isLoading = ref(true);
@@ -25,6 +32,10 @@ const isAuthRequired = ref(false);
 const isAuthenticated = ref(true);
 const adminPasswordInput = ref('');
 const authError = ref('');
+
+const activeTab = ref<'overview' | 'discovery' | 'logs'>('overview');
+const serverHealth = ref<ApiHealthResponse | null>(null);
+const formatLabRef = ref<any>(null);
 
 const summary = ref<AnalyticsSummary | null>(null);
 const events = ref<GenerationEventItem[]>([]);
@@ -54,6 +65,33 @@ function setStoredAuthKey(key: string): void {
   }
 }
 
+async function loadHealth(): Promise<void> {
+  try {
+    const res = await ApiService.checkHealth();
+    serverHealth.value = res;
+  } catch {
+    // health check optional
+  }
+}
+
+function formatBytes(bytes?: number): string {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+function formatUptime(seconds?: number): string {
+  if (!seconds) return '0m';
+  const d = Math.floor(seconds / (3600 * 24));
+  const h = Math.floor((seconds % (3600 * 24)) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
 async function checkStatusAndLoad(): Promise<void> {
   isLoading.value = true;
   authError.value = '';
@@ -71,7 +109,7 @@ async function checkStatusAndLoad(): Promise<void> {
       }
     }
 
-    await Promise.all([loadSummary(), loadEvents()]);
+    await Promise.all([loadSummary(), loadEvents(), loadHealth()]);
     isAuthenticated.value = true;
   } catch (err: any) {
     if (err?.message?.includes('401') || err?.status === 401) {
@@ -97,11 +135,11 @@ async function handleLogin(): Promise<void> {
       setStoredAuthKey(adminPasswordInput.value.trim());
       isAuthenticated.value = true;
       adminPasswordInput.value = '';
-      await Promise.all([loadSummary(), loadEvents()]);
+      await Promise.all([loadSummary(), loadEvents(), loadHealth()]);
     } else {
       authError.value = 'Invalid admin password';
     }
-  } catch (err) {
+  } catch {
     authError.value = 'Authentication failed';
   } finally {
     isLoading.value = false;
@@ -307,8 +345,95 @@ onMounted(() => {
 
       <!-- Authenticated Dashboard View -->
       <div v-else class="space-y-6">
-        <!-- 1. Top Stat Metric Cards -->
-        <div class="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
+        <!-- Infrastructure Storage & System Telemetry Bar -->
+        <div class="bg-card border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="p-2.5 rounded-lg bg-inputBg border border-border text-zinc-300">
+              <HardDrive class="w-4 h-4" />
+            </div>
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold text-white">Storage Capacity (Oracle Cloud VM)</span>
+                <span
+                  class="px-2 py-0.5 rounded text-[10px] font-mono font-medium"
+                  :class="
+                    (serverHealth?.storage?.percent_used ?? 0) > 80
+                      ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                      : (serverHealth?.storage?.percent_used ?? 0) > 65
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                  "
+                >
+                  {{ (serverHealth?.storage?.percent_used ?? 0) > 80 ? 'Active Rotation' : (serverHealth?.storage?.percent_used ?? 0) > 65 ? 'Approaching Limit' : 'Safe / Retained' }}
+                </span>
+              </div>
+              <div class="text-xs text-muted flex items-center gap-2">
+                <span class="font-mono text-zinc-200">
+                  {{ formatBytes(serverHealth?.storage?.used_bytes) }}
+                </span>
+                <span>/</span>
+                <span class="font-mono text-zinc-400">
+                  {{ formatBytes(serverHealth?.storage?.max_bytes || 16106127360) }}
+                </span>
+                <span class="text-[11px] text-zinc-500">
+                  ({{ serverHealth?.storage?.percent_used ?? 0 }}% used &bull; High Watermark 12 GB)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-4 text-xs text-muted border-t sm:border-t-0 pt-2 sm:pt-0 border-border/50">
+            <div>
+              <span class="block text-[10px] uppercase text-zinc-500">Uptime</span>
+              <span class="font-mono text-zinc-300">{{ formatUptime(serverHealth?.uptime_seconds) }}</span>
+            </div>
+            <div class="h-6 w-px bg-border/60"></div>
+            <div>
+              <span class="block text-[10px] uppercase text-zinc-500">Engine</span>
+              <span class="font-mono text-zinc-300">v{{ serverHealth?.version || '2.1.0' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Segmented Tab Navigation Bar -->
+        <div class="flex items-center gap-2 border-b border-border/70 pb-3">
+          <button
+            type="button"
+            @click="activeTab = 'overview'"
+            class="px-3.5 py-2 rounded-xl text-xs font-semibold transition inline-flex items-center gap-2"
+            :class="activeTab === 'overview' ? 'bg-white text-black shadow-sm' : 'text-muted hover:text-white hover:bg-zinc-800/60'"
+          >
+            <BarChart2 class="w-3.5 h-3.5" />
+            <span>Overview & Usage</span>
+          </button>
+
+          <button
+            type="button"
+            @click="activeTab = 'discovery'"
+            class="px-3.5 py-2 rounded-xl text-xs font-semibold transition inline-flex items-center gap-2"
+            :class="activeTab === 'discovery' ? 'bg-white text-black shadow-sm' : 'text-muted hover:text-white hover:bg-zinc-800/60'"
+          >
+            <Compass class="w-3.5 h-3.5" />
+            <span>Format Discovery Lab</span>
+            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-indigo-500 text-white font-medium">Lab</span>
+          </button>
+
+          <button
+            type="button"
+            @click="activeTab = 'logs'"
+            class="px-3.5 py-2 rounded-xl text-xs font-semibold transition inline-flex items-center gap-2"
+            :class="activeTab === 'logs' ? 'bg-white text-black shadow-sm' : 'text-muted hover:text-white hover:bg-zinc-800/60'"
+          >
+            <FileText class="w-3.5 h-3.5" />
+            <span>Generation Logs</span>
+            <span class="text-[10px] font-mono opacity-70">({{ totalEventsCount }})</span>
+          </button>
+        </div>
+
+        <!-- Tab 1: Overview & Usage -->
+        <div v-show="activeTab === 'overview'" class="space-y-6">
+          <!-- 1. Top Stat Metric Cards -->
+          <div class="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
           <!-- Total Generations -->
           <div class="bg-card border border-border rounded-xl p-4 space-y-1">
             <div class="flex items-center justify-between text-muted">
@@ -469,7 +594,15 @@ onMounted(() => {
             </div>
           </div>
         </div>
+      </div>
 
+      <!-- Tab 2: Format Discovery Lab -->
+      <div v-show="activeTab === 'discovery'">
+        <FormatDiscoveryLab :auth-key="getStoredAuthKey()" ref="formatLabRef" />
+      </div>
+
+      <!-- Tab 3: Generation Logs -->
+      <div v-show="activeTab === 'logs'">
         <!-- 3. Searchable Student Generation Log Table -->
         <div class="bg-card border border-border rounded-xl overflow-hidden space-y-0">
           <!-- Table Header & Filter Bar -->
@@ -591,7 +724,8 @@ onMounted(() => {
           </div>
         </div>
       </div>
-    </main>
+    </div>
+  </main>
 
     <!-- Event Details Modal Drawer -->
     <div

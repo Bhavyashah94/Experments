@@ -7,6 +7,30 @@ describe('AnalyticsDashboard Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sessionStorage.clear();
+
+    vi.spyOn(ApiService, 'checkHealth').mockResolvedValue({
+      status: 'ok',
+      version: '2.1.0',
+      uptime_seconds: 3600,
+      storage: { max_bytes: 16106127360, used_bytes: 500000000, percent_used: 3.1 },
+    });
+
+    vi.spyOn(ApiService, 'getAnalyticsDiagnostics').mockResolvedValue({
+      success: true,
+      data: {
+        summary: {
+          total_documents: 10,
+          success_rate_percent: 90,
+          methods: { aim_keyword: 9 },
+          failures: {},
+          discrepancies_count: 1,
+        },
+        samples: [],
+        total: 0,
+        limit: 20,
+        offset: 0,
+      },
+    });
   });
 
   it('renders analytics metrics when authenticated and data loads', async () => {

@@ -2,6 +2,11 @@ export interface ApiHealthResponse {
   status: 'ok' | 'degraded';
   version: string;
   uptime_seconds: number;
+  storage?: {
+    max_bytes: number;
+    used_bytes: number;
+    percent_used: number;
+  };
 }
 
 export interface ApiFileExistsResponse {

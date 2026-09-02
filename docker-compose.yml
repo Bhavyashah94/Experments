@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   header-app:
     build:
@@ -10,6 +8,7 @@ services:
       - "7860:7860"
     environment:
       - PORT=7860
+      - ANALYTICS_ADMIN_PASSWORD=${ANALYTICS_ADMIN_PASSWORD:-Raster0912@}
     volumes:
       - ./output:/app/output
       - ./uploads:/app/uploads
