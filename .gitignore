@@ -30,6 +30,10 @@ frontend/.vite/
 # ── Application Runtime Storage & Generated Files ───────────────────
 output/
 uploads/
+data/
+*.db
+*.sqlite
+*.sqlite3
 *.pdf
 *.zip
 !Header.pdf
