@@ -70,4 +70,56 @@ export class ApiService {
     const cleanPath = relPath.replace(/^\//, '');
     return `${API_BASE}/api/download/${cleanPath}`;
   }
+
+  static async getAnalyticsStatus(): Promise<{ enabled: boolean; auth_required: boolean }> {
+    const res = await fetch(`${API_BASE}/api/analytics/status`, { method: 'GET' });
+    if (!res.ok) return { enabled: false, auth_required: false };
+    return res.json();
+  }
+
+  static async verifyAnalyticsAuth(password: string): Promise<{ valid: boolean; auth_required: boolean }> {
+    const res = await fetch(`${API_BASE}/api/analytics/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    return res.json();
+  }
+
+  static async getAnalyticsSummary(authKey?: string): Promise<{ success: boolean; data?: any; error?: string }> {
+    const headers: Record<string, string> = {};
+    if (authKey) headers['X-Analytics-Key'] = authKey;
+
+    const res = await fetch(`${API_BASE}/api/analytics/summary`, {
+      method: 'GET',
+      headers,
+    });
+    if (res.status === 401) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    return res.json();
+  }
+
+  static async getAnalyticsEvents(
+    params: { q?: string; subject?: string; limit?: number; offset?: number },
+    authKey?: string
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    const query = new URLSearchParams();
+    if (params.q) query.set('q', params.q);
+    if (params.subject) query.set('subject', params.subject);
+    if (params.limit) query.set('limit', String(params.limit));
+    if (params.offset) query.set('offset', String(params.offset));
+
+    const headers: Record<string, string> = {};
+    if (authKey) headers['X-Analytics-Key'] = authKey;
+
+    const res = await fetch(`${API_BASE}/api/analytics/events?${query.toString()}`, {
+      method: 'GET',
+      headers,
+    });
+    if (res.status === 401) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    return res.json();
+  }
 }

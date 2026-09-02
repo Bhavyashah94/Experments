@@ -14,6 +14,13 @@ from lab_core import (
     render_header_preview_png,
     generate_job_documents,
     inspect_pdf_info,
+    init_analytics_db,
+    record_generation_event,
+    get_analytics_summary,
+    get_generation_events,
+    is_analytics_enabled,
+    is_auth_required,
+    verify_admin_password,
 )
 
 APP_START_TIME = time.time()
@@ -450,7 +457,9 @@ def generate_pdfs():
     """
     Generates filled headers, merges with body PDFs in a concurrency-safe job directory,
     and produces a combined PDF and a ZIP package.
+    Records fail-safe analytics event.
     """
+    start_time = time.time()
     req_data = request.get_json() or {}
     student = req_data.get("student", {})
     experiments = req_data.get("experiments", [])
@@ -479,8 +488,31 @@ def generate_pdfs():
             include_toc=include_toc,
             base_dir=BASE_DIR,
         )
+        duration_ms = (time.time() - start_time) * 1000.0
+        try:
+            record_generation_event(
+                student=student,
+                experiments=experiments,
+                success=True,
+                duration_ms=duration_ms,
+                generation_type="batch_package",
+            )
+        except Exception:
+            pass
         return jsonify(result)
     except Exception as e:
+        duration_ms = (time.time() - start_time) * 1000.0
+        try:
+            record_generation_event(
+                student=student,
+                experiments=experiments,
+                success=False,
+                duration_ms=duration_ms,
+                error_message=str(e),
+                generation_type="batch_package",
+            )
+        except Exception:
+            pass
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -508,8 +540,111 @@ def download_file(filepath):
     return jsonify({"error": "File not found"}), 404
 
 
+# ── Analytics System ───────────────────────────────────────────────────────────
+
+def _check_analytics_auth():
+    """Checks if the incoming request is authorized to view analytics."""
+    if not is_analytics_enabled():
+        return False, (jsonify({"error": "Analytics is disabled"}), 404)
+    if not is_auth_required():
+        return True, None
+
+    auth_header = request.headers.get("X-Analytics-Key") or request.headers.get("Authorization") or ""
+    if auth_header.startswith("Bearer "):
+        auth_header = auth_header[7:]
+    if verify_admin_password(auth_header):
+        return True, None
+    return False, (jsonify({"error": "Unauthorized", "auth_required": True}), 401)
+
+
+@app.route("/analytics")
+def analytics_page():
+    """Dedicated hidden analytics dashboard route."""
+    if not is_analytics_enabled():
+        return ("Not Found", 404)
+    spa_dist_index = os.path.join(BASE_DIR, "frontend", "dist", "index.html")
+    if os.path.exists(spa_dist_index):
+        return send_file(spa_dist_index)
+    return render_template("index.html")
+
+
+@app.route("/api/analytics/status", methods=["GET"])
+def analytics_status():
+    """Returns analytics status and whether an admin password is required."""
+    enabled = is_analytics_enabled()
+    if not enabled:
+        return jsonify({"enabled": False, "auth_required": False}), 404
+    return jsonify({
+        "enabled": True,
+        "auth_required": is_auth_required(),
+    })
+
+
+@app.route("/api/analytics/auth", methods=["POST"])
+@limiter.limit("15 per minute")
+def analytics_authenticate():
+    """Validates the admin password."""
+    if not is_analytics_enabled():
+        return jsonify({"error": "Analytics is disabled"}), 404
+    data = request.get_json() or {}
+    candidate = data.get("password") or request.headers.get("X-Analytics-Key") or ""
+    if verify_admin_password(candidate):
+        return jsonify({"valid": True, "auth_required": is_auth_required()})
+    return jsonify({"valid": False, "error": "Invalid admin password"}), 401
+
+
+@app.route("/api/analytics/summary", methods=["GET"])
+@limiter.limit("60 per minute")
+def analytics_summary():
+    """Returns aggregated high-level usage metrics, timeline trends, and rankings."""
+    is_auth, err_resp = _check_analytics_auth()
+    if not is_auth:
+        return err_resp
+    try:
+        summary = get_analytics_summary()
+        return jsonify({"success": True, "data": summary})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/analytics/events", methods=["GET"])
+@limiter.limit("60 per minute")
+def analytics_events():
+    """Returns searchable, paginated generation events log."""
+    is_auth, err_resp = _check_analytics_auth()
+    if not is_auth:
+        return err_resp
+
+    query = request.args.get("q", "").strip() or None
+    subject = request.args.get("subject", "").strip() or None
+    try:
+        limit = min(max(int(request.args.get("limit", 50)), 1), 200)
+        offset = max(int(request.args.get("offset", 0)), 0)
+    except ValueError:
+        limit, offset = 50, 0
+
+    try:
+        events, total = get_generation_events(query=query, subject=subject, limit=limit, offset=offset)
+        return jsonify({
+            "success": True,
+            "data": {
+                "events": events,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # ── Entrypoint ─────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    if is_analytics_enabled():
+        try:
+            init_analytics_db()
+        except Exception:
+            pass
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)

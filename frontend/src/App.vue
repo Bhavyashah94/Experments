@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { ApiService } from '@/services/api';
 import StudentHeaderForm from '@/components/student/StudentHeaderForm.vue';
@@ -9,7 +9,22 @@ import BulkDropzone from '@/components/documents/BulkDropzone.vue';
 import DocumentCardList from '@/components/documents/DocumentCardList.vue';
 import LivePreviewModal from '@/components/modals/LivePreviewModal.vue';
 import FormatGuideModal from '@/components/modals/FormatGuideModal.vue';
+import AnalyticsDashboard from '@/components/analytics/AnalyticsDashboard.vue';
 import type { DocumentItem } from '@/types/document';
+
+const currentPath = ref(window.location.pathname);
+
+function handlePopState() {
+  currentPath.value = window.location.pathname;
+}
+
+onMounted(() => {
+  window.addEventListener('popstate', handlePopState);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('popstate', handlePopState);
+});
 import {
   HelpCircle,
   Loader2,
@@ -69,7 +84,11 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-surface text-zinc-100 flex flex-col selection:bg-zinc-800 selection:text-white">
+  <!-- Dedicated Hidden Analytics Dashboard Route -->
+  <AnalyticsDashboard v-if="currentPath === '/analytics'" />
+
+  <!-- Normal Student-Facing Document Studio Workspace (100% Unchanged) -->
+  <div v-else class="min-h-screen bg-surface text-zinc-100 flex flex-col selection:bg-zinc-800 selection:text-white">
     <!-- Top Clean Sticky Navbar -->
     <nav class="bg-card/90 backdrop-blur-md border-b border-border sticky top-0 z-40">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4">

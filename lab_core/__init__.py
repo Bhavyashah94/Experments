@@ -19,6 +19,16 @@ from .toc_engine import (
     generate_toc_page,
 )
 
+from .analytics import (
+    init_analytics_db,
+    record_generation_event,
+    get_analytics_summary,
+    get_generation_events,
+    is_analytics_enabled,
+    is_auth_required,
+    verify_admin_password,
+)
+
 __all__ = [
     "parse_color",
     "split_and_scale_title",
@@ -28,4 +38,11 @@ __all__ = [
     "generate_toc_page",
     "inspect_pdf_info",
     "extract_aim_from_pdf",
+    "init_analytics_db",
+    "record_generation_event",
+    "get_analytics_summary",
+    "get_generation_events",
+    "is_analytics_enabled",
+    "is_auth_required",
+    "verify_admin_password",
 ]
