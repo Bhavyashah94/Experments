@@ -11,7 +11,7 @@ import sqlite3
 import hmac
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, Set
 
 logger = logging.getLogger(__name__)
 
@@ -79,35 +79,55 @@ def get_db_connection(db_path: Optional[str] = None) -> sqlite3.Connection:
     except Exception:
         pass
 
-    if path not in _INITIALIZED_DBS:
-        try:
-            with conn:
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS generation_events (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        timestamp TEXT NOT NULL,
-                        student_name TEXT,
-                        roll_no TEXT,
-                        batch TEXT,
-                        class_name TEXT,
-                        sem TEXT,
-                        subject TEXT,
-                        experiment_count INTEGER NOT NULL DEFAULT 0,
-                        experiments_json TEXT,
-                        generation_type TEXT NOT NULL DEFAULT 'batch_package',
-                        success INTEGER NOT NULL DEFAULT 1,
-                        error_message TEXT,
-                        duration_ms REAL NOT NULL DEFAULT 0.0
-                    );
-                """)
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_timestamp ON generation_events(timestamp);")
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_roll_no ON generation_events(roll_no);")
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_subject ON generation_events(subject);")
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_student ON generation_events(student_name, roll_no);")
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_success ON generation_events(success);")
-            _INITIALIZED_DBS.add(path)
-        except Exception:
-            pass
+    try:
+        with conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS generation_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    student_name TEXT,
+                    roll_no TEXT,
+                    batch TEXT,
+                    class_name TEXT,
+                    sem TEXT,
+                    subject TEXT,
+                    experiment_count INTEGER NOT NULL DEFAULT 0,
+                    experiments_json TEXT,
+                    generation_type TEXT NOT NULL DEFAULT 'batch_package',
+                    success INTEGER NOT NULL DEFAULT 1,
+                    error_message TEXT,
+                    duration_ms REAL NOT NULL DEFAULT 0.0
+                );
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_timestamp ON generation_events(timestamp);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_roll_no ON generation_events(roll_no);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_subject ON generation_events(subject);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_student ON generation_events(student_name, roll_no);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_success ON generation_events(success);")
+
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS extraction_diagnostics (
+                    sha256 TEXT PRIMARY KEY,
+                    filename TEXT,
+                    file_size INTEGER,
+                    pages INTEGER,
+                    extracted_aim TEXT,
+                    extracted_exp_num TEXT,
+                    extraction_method TEXT,
+                    failure_reason TEXT,
+                    student_submitted_title TEXT,
+                    student_submitted_num TEXT,
+                    discrepancy INTEGER DEFAULT 0,
+                    text_snippet TEXT,
+                    uploaded_at TEXT,
+                    is_sample_preserved INTEGER DEFAULT 1
+                );
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_diag_method ON extraction_diagnostics(extraction_method);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_diag_failure ON extraction_diagnostics(failure_reason);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_diag_discrepancy ON extraction_diagnostics(discrepancy);")
+    except Exception as e:
+        logger.warning(f"Failed to initialize schema for {path}: {e}")
 
     return conn
 
@@ -461,3 +481,211 @@ def export_analytics_json(db_path: Optional[str] = None) -> str:
         "events": events,
     }
     return json.dumps(payload, indent=2)
+
+
+# ── Extraction Diagnostics & Ground-Truth Format Discovery ────────────────────
+
+def record_upload_diagnostic(
+    sha256: str,
+    filename: str,
+    file_size: int,
+    pages: int,
+    extracted_aim: Optional[str],
+    extracted_exp_num: Optional[str],
+    extraction_method: str,
+    failure_reason: str,
+    text_snippet: str,
+    db_path: Optional[str] = None,
+) -> None:
+    """
+    Records extraction diagnostic signals for every uploaded PDF.
+    Helps internal analysis of why heuristics fail and discover new university formats.
+    """
+    if not is_analytics_enabled():
+        return
+
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    conn = None
+    try:
+        conn = get_db_connection(db_path)
+        with conn:
+            conn.execute("""
+                INSERT INTO extraction_diagnostics (
+                    sha256, filename, file_size, pages, extracted_aim,
+                    extracted_exp_num, extraction_method, failure_reason,
+                    text_snippet, uploaded_at, is_sample_preserved
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                ON CONFLICT(sha256) DO UPDATE SET
+                    filename = excluded.filename,
+                    file_size = excluded.file_size,
+                    pages = excluded.pages,
+                    extracted_aim = excluded.extracted_aim,
+                    extracted_exp_num = excluded.extracted_exp_num,
+                    extraction_method = excluded.extraction_method,
+                    failure_reason = excluded.failure_reason,
+                    text_snippet = excluded.text_snippet;
+            """, (
+                sha256, filename, file_size, pages, extracted_aim,
+                extracted_exp_num, extraction_method, failure_reason,
+                text_snippet, now_iso
+            ))
+    except Exception as e:
+        logger.warning(f"Failed to record upload diagnostic: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+
+def record_student_ground_truth(
+    experiments: List[Dict[str, Any]],
+    db_path: Optional[str] = None,
+) -> None:
+    """
+    When students submit /api/generate, compare their submitted title and experiment number
+    against the extracted values. If different, record as discrepancy (ground truth).
+    """
+    if not is_analytics_enabled() or not experiments:
+        return
+
+    conn = None
+    try:
+        conn = get_db_connection(db_path)
+        with conn:
+            for item in experiments:
+                file_hash = str(item.get("hash") or "").strip().lower()
+                submitted_title = str(item.get("title") or "").strip()
+                submitted_num = str(item.get("label") or item.get("num") or "").strip()
+
+                if not file_hash or len(file_hash) != 64:
+                    continue
+
+                # Query existing diagnostic record
+                cursor = conn.execute(
+                    "SELECT extracted_aim, extracted_exp_num FROM extraction_diagnostics WHERE sha256 = ?",
+                    (file_hash,)
+                )
+                row = cursor.fetchone()
+                if row:
+                    extracted_aim = (row["extracted_aim"] or "").strip()
+                    extracted_num = (row["extracted_exp_num"] or "").strip()
+
+                    # Discrepancy if title was missing or changed by student
+                    has_discrepancy = 0
+                    if not extracted_aim or (submitted_title and submitted_title.lower() != extracted_aim.lower()):
+                        has_discrepancy = 1
+                    if extracted_num and submitted_num and extracted_num != submitted_num:
+                        has_discrepancy = 1
+
+                    conn.execute("""
+                        UPDATE extraction_diagnostics
+                        SET student_submitted_title = ?,
+                            student_submitted_num = ?,
+                            discrepancy = ?
+                        WHERE sha256 = ?;
+                    """, (submitted_title, submitted_num, has_discrepancy, file_hash))
+    except Exception as e:
+        logger.warning(f"Failed to record student ground truth: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+
+def get_extraction_diagnostics_summary(db_path: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Summarizes extraction performance, failure breakdown, and discrepancy counts.
+    """
+    conn = get_db_connection(db_path)
+    try:
+        cur = conn.cursor()
+
+        # Total diagnostic records
+        cur.execute("SELECT COUNT(*) FROM extraction_diagnostics;")
+        total = cur.fetchone()[0]
+
+        # By extraction method
+        cur.execute("""
+            SELECT extraction_method, COUNT(*) as count
+            FROM extraction_diagnostics
+            GROUP BY extraction_method
+            ORDER BY count DESC;
+        """)
+        methods = {row["extraction_method"]: row["count"] for row in cur.fetchall()}
+
+        # By failure reason
+        cur.execute("""
+            SELECT failure_reason, COUNT(*) as count
+            FROM extraction_diagnostics
+            WHERE failure_reason != 'none'
+            GROUP BY failure_reason
+            ORDER BY count DESC;
+        """)
+        failures = {row["failure_reason"]: row["count"] for row in cur.fetchall()}
+
+        # Total discrepancies (student override or missing title filled)
+        cur.execute("SELECT COUNT(*) FROM extraction_diagnostics WHERE discrepancy = 1;")
+        discrepancies = cur.fetchone()[0]
+
+        success_count = methods.get("aim_keyword", 0) + methods.get("header_title", 0)
+        success_rate = round((success_count / total * 100), 1) if total > 0 else 100.0
+
+        return {
+            "total_documents": total,
+            "success_rate_percent": success_rate,
+            "methods": methods,
+            "failures": failures,
+            "discrepancies_count": discrepancies,
+        }
+    finally:
+        conn.close()
+
+
+def get_failed_or_discrepant_samples(
+    limit: int = 50,
+    offset: int = 0,
+    db_path: Optional[str] = None,
+) -> Tuple[List[Dict[str, Any]], int]:
+    """
+    Returns documents where extraction failed or where students corrected the title.
+    """
+    conn = get_db_connection(db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT COUNT(*) FROM extraction_diagnostics
+            WHERE discrepancy = 1 OR failure_reason != 'none';
+        """)
+        total = cur.fetchone()[0]
+
+        cur.execute("""
+            SELECT sha256, filename, file_size, pages, extracted_aim,
+                   extracted_exp_num, extraction_method, failure_reason,
+                   student_submitted_title, student_submitted_num,
+                   discrepancy, text_snippet, uploaded_at, is_sample_preserved
+            FROM extraction_diagnostics
+            WHERE discrepancy = 1 OR failure_reason != 'none'
+            ORDER BY uploaded_at DESC
+            LIMIT ? OFFSET ?;
+        """, (limit, offset))
+        rows = [dict(r) for r in cur.fetchall()]
+        return rows, total
+    finally:
+        conn.close()
+
+
+def get_protected_hashes_set(db_path: Optional[str] = None) -> Set[str]:
+    """
+    Returns the set of SHA-256 hashes for failed/discrepant uploads that should be
+    protected from storage rotation so the research dataset remains intact.
+    """
+    conn = get_db_connection(db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT sha256 FROM extraction_diagnostics
+            WHERE discrepancy = 1 OR failure_reason != 'none' OR is_sample_preserved = 1;
+        """)
+        return {row[0] for row in cur.fetchall()}
+    except Exception:
+        return set()
+    finally:
+        conn.close()

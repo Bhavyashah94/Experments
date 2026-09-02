@@ -181,10 +181,10 @@ def test_download_security_sandboxing(client):
 
 
 def test_batch_experiment_limit(client):
-    """Verifies that exceeding the 30-experiment batch limit returns HTTP 400."""
+    """Verifies that exceeding the 60-experiment batch limit returns HTTP 400."""
     payload = {
         "student": {"name": "Test Student"},
-        "experiments": [{"label": str(i), "title": f"Exp {i}"} for i in range(35)],
+        "experiments": [{"label": str(i), "title": f"Exp {i}"} for i in range(65)],
     }
     res = client.post("/api/generate", json=payload)
     assert res.status_code == 400

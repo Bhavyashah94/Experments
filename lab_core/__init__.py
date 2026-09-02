@@ -29,6 +29,11 @@ from .analytics import (
     is_analytics_enabled,
     is_auth_required,
     verify_admin_password,
+    record_upload_diagnostic,
+    record_student_ground_truth,
+    get_extraction_diagnostics_summary,
+    get_failed_or_discrepant_samples,
+    get_protected_hashes_set,
 )
 
 __all__ = [
@@ -49,4 +54,9 @@ __all__ = [
     "is_analytics_enabled",
     "is_auth_required",
     "verify_admin_password",
+    "record_upload_diagnostic",
+    "record_student_ground_truth",
+    "get_extraction_diagnostics_summary",
+    "get_failed_or_discrepant_samples",
+    "get_protected_hashes_set",
 ]

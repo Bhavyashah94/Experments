@@ -23,13 +23,18 @@ from lab_core import (
     is_analytics_enabled,
     is_auth_required,
     verify_admin_password,
+    record_upload_diagnostic,
+    record_student_ground_truth,
+    get_extraction_diagnostics_summary,
+    get_failed_or_discrepant_samples,
+    get_protected_hashes_set,
 )
 
 APP_START_TIME = time.time()
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
-app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024  # 25 MB max upload size
+app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB max upload size
 
 # Enable CORS for API routes, Header.pdf template, and assets
 CORS(
@@ -65,7 +70,7 @@ def handle_404(e):
 
 @app.errorhandler(413)
 def handle_413(e):
-    return jsonify({"success": False, "error": "Payload too large. Maximum file upload size is 25 MB."}), 413
+    return jsonify({"success": False, "error": "Payload too large. Maximum file upload size is 100 MB."}), 413
 
 @app.errorhandler(429)
 def handle_429(e):
@@ -91,12 +96,14 @@ if is_analytics_enabled():
     except Exception:
         pass
 
-# ── Background Ephemeral Sweeper & LRU Storage Quota Manager ──────────────────
-UPLOADS_TTL_SECONDS = 24 * 60 * 60   # 24 hours for uploaded files
-JOBS_TTL_SECONDS = 2 * 60 * 60       # 2 hours for generated job output packages
-SWEEP_EVERY_SECONDS = 15 * 60        # run sweep every 15 minutes
-MAX_STORAGE_BYTES = 750 * 1024 * 1024  # 750 MB max storage cap on Render
-TARGET_STORAGE_BYTES = 350 * 1024 * 1024 # Target clean size during eviction
+# ── Storage Management & Dataset Rotation Engine ──────────────────────────────
+# Scaled for Oracle Cloud VM (45GB NVMe disk)
+MAX_STORAGE_BYTES = 15 * 1024 * 1024 * 1024      # 15 GB ceiling
+HIGH_WATERMARK_BYTES = 12 * 1024 * 1024 * 1024   # 12 GB trigger rotation threshold
+LOW_WATERMARK_BYTES = 10 * 1024 * 1024 * 1024    # 10 GB target clean size after rotation
+TARGET_STORAGE_BYTES = LOW_WATERMARK_BYTES       # Alias for backward compatibility
+OUTPUT_JOBS_MAX_AGE_SECONDS = 7 * 24 * 60 * 60   # 7 days for generated deliverable outputs in output/
+SWEEP_EVERY_SECONDS = 30 * 60                    # run sweep every 30 minutes
 
 
 def _get_dir_size(path: str) -> int:
@@ -115,99 +122,104 @@ def _get_dir_size(path: str) -> int:
 
 def _enforce_storage_quota():
     """
-    Enforces maximum disk quota using Least Recently Used (LRU) eviction.
-    If total disk usage across uploads/ and output/ exceeds MAX_STORAGE_BYTES,
-    oldest files and job folders are deleted until usage is below TARGET_STORAGE_BYTES.
+    Intelligent dual-watermark storage rotation.
+    Triggered when total disk usage exceeds HIGH_WATERMARK_BYTES (or MAX_STORAGE_BYTES).
+    Tier 1: Prunes generated deliverable job directories in output/ older than 3 days.
+    Tier 2: If still > target clean size, evicts non-protected uploads in LRU order.
+    Tier 3: As a last resort, evicts oldest protected samples.
     """
     uploads_size = _get_dir_size(UPLOADS_DIR)
     output_size = _get_dir_size(OUTPUT_DIR)
     total_size = uploads_size + output_size
 
-    if total_size <= MAX_STORAGE_BYTES:
+    trigger_threshold = min(MAX_STORAGE_BYTES, HIGH_WATERMARK_BYTES)
+    target_clean = min(LOW_WATERMARK_BYTES, TARGET_STORAGE_BYTES)
+
+    if total_size <= trigger_threshold:
         return
 
-    items = []
+    current_size = total_size
 
-    # Uploaded files
-    try:
-        for fname in os.listdir(UPLOADS_DIR):
-            fpath = os.path.join(UPLOADS_DIR, fname)
-            if os.path.isfile(fpath):
-                try:
-                    items.append((os.path.getmtime(fpath), os.path.getsize(fpath), fpath, True))
-                except OSError:
-                    pass
-    except OSError:
-        pass
-
-    # Output job directories
+    # Tier 1: Prune output job directories older than 3 days first
+    now = time.time()
     try:
         for entry in os.listdir(OUTPUT_DIR):
             epath = os.path.join(OUTPUT_DIR, entry)
             if os.path.isdir(epath) and entry != "headers":
-                try:
+                if (now - os.path.getmtime(epath)) > (3 * 24 * 3600):
                     sz = _get_dir_size(epath)
-                    items.append((os.path.getmtime(epath), sz, epath, False))
-                except OSError:
-                    pass
+                    shutil.rmtree(epath, ignore_errors=True)
+                    current_size -= sz
+                    if current_size <= target_clean:
+                        return
     except OSError:
         pass
 
-    # Sort oldest first (ascending mtime)
-    items.sort(key=lambda x: x[0])
+    # Tier 2: Separate uploads into unprotected vs protected
+    protected_hashes = get_protected_hashes_set()
+    unprotected_files = []
+    protected_files = []
 
-    current_size = total_size
-    for _, sz, item_path, is_file in items:
-        if current_size <= TARGET_STORAGE_BYTES:
-            break
+    try:
+        for fname in os.listdir(UPLOADS_DIR):
+            fpath = os.path.join(UPLOADS_DIR, fname)
+            if os.path.isfile(fpath):
+                file_hash = os.path.splitext(fname)[0].lower()
+                mtime = os.path.getmtime(fpath)
+                sz = os.path.getsize(fpath)
+                if file_hash in protected_hashes:
+                    protected_files.append((mtime, sz, fpath))
+                else:
+                    unprotected_files.append((mtime, sz, fpath))
+    except OSError:
+        pass
+
+    # Sort oldest first
+    unprotected_files.sort(key=lambda x: x[0])
+    for _, sz, fpath in unprotected_files:
+        if current_size <= target_clean:
+            return
         try:
-            if is_file:
-                os.remove(item_path)
-            else:
-                shutil.rmtree(item_path, ignore_errors=True)
+            os.remove(fpath)
             current_size -= sz
-        except Exception:
+        except OSError:
+            pass
+
+    # Tier 3: If still above low watermark, rotate oldest protected files
+    protected_files.sort(key=lambda x: x[0])
+    for _, sz, fpath in protected_files:
+        if current_size <= target_clean:
+            return
+        try:
+            os.remove(fpath)
+            current_size -= sz
+        except OSError:
             pass
 
 
 def _cleanup_ephemeral_storage():
     """
-    1. Sweeps TTL-expired uploads (> 24h) and expired job outputs (> 2h).
-    2. Enforces maximum storage quota via LRU eviction.
-    3. Re-schedules itself periodically.
+    Background maintenance task:
+    1. Sweeps compiled deliverables in output/ older than OUTPUT_JOBS_MAX_AGE_SECONDS (7 days).
+    2. Uploaded documents have NO arbitrary TTL and are kept for research/analytics.
+    3. Runs storage rotation if usage exceeds 12 GB.
+    4. Re-schedules itself every 30 minutes.
     """
     now = time.time()
-    # 1. Sweep uploads directory
-    try:
-        for fname in os.listdir(UPLOADS_DIR):
-            fpath = os.path.join(UPLOADS_DIR, fname)
-            if os.path.isfile(fpath):
-                if (now - os.path.getmtime(fpath)) > UPLOADS_TTL_SECONDS:
-                    try:
-                        os.remove(fpath)
-                    except OSError:
-                        pass
-    except Exception as e:
-        print(f"[cleanup] error sweeping uploads: {e}")
-
-    # 2. Sweep job-scoped output directories
     try:
         for entry in os.listdir(OUTPUT_DIR):
             epath = os.path.join(OUTPUT_DIR, entry)
             if os.path.isdir(epath) and entry != "headers":
-                if (now - os.path.getmtime(epath)) > JOBS_TTL_SECONDS:
-                    try:
-                        shutil.rmtree(epath, ignore_errors=True)
-                    except Exception:
-                        pass
+                if (now - os.path.getmtime(epath)) > OUTPUT_JOBS_MAX_AGE_SECONDS:
+                    shutil.rmtree(epath, ignore_errors=True)
     except Exception as e:
         print(f"[cleanup] error sweeping output jobs: {e}")
 
-    # 3. Enforce LRU storage quota
+    # Enforce high-watermark storage rotation
     try:
         _enforce_storage_quota()
     except Exception as e:
-        print(f"[cleanup] error enforcing quota: {e}")
+        print(f"[cleanup] error enforcing storage quota: {e}")
     finally:
         t = threading.Timer(SWEEP_EVERY_SECONDS, _cleanup_ephemeral_storage)
         t.daemon = True
@@ -341,23 +353,22 @@ def get_defaults():
 
 @app.route("/api/file/<hash_val>/exists", methods=["GET"])
 def file_exists(hash_val):
-    """Check if a file with the given SHA-256 hash exists and is not expired."""
+    """Check if a file with the given SHA-256 hash exists on disk."""
     hash_val = hash_val.lower().strip()
     if not _valid_hash(hash_val):
         return jsonify({"exists": False, "error": "Invalid hash"}), 400
 
     fpath = os.path.join(UPLOADS_DIR, f"{hash_val}.pdf")
-    if os.path.exists(fpath):
-        age = time.time() - os.path.getmtime(fpath)
-        if age <= UPLOADS_TTL_SECONDS:
-            info = inspect_pdf_info(fpath)
-            return jsonify({
-                "exists": True,
-                "pages": info.get("pages", 0),
-                "aim": info.get("aim"),
-                "exp_num": info.get("exp_num"),
-                "is_assignment": info.get("is_assignment"),
-            })
+    if os.path.isfile(fpath):
+        info = inspect_pdf_info(fpath)
+        return jsonify({
+            "exists": True,
+            "pages": info.get("pages", 0),
+            "aim": info.get("aim"),
+            "exp_num": info.get("exp_num"),
+            "is_assignment": info.get("is_assignment"),
+            "extraction_method": info.get("extraction_method", "unextracted"),
+        })
     return jsonify({"exists": False}), 404
 
 
@@ -366,7 +377,7 @@ def file_exists(hash_val):
 def upload_file():
     """
     Accepts a PDF file upload via chunked streaming to prevent 512MB RAM spikes.
-    Stores as uploads/<sha256>.pdf. Returns metadata.
+    Stores as uploads/<sha256>.pdf. Logs extraction diagnostics and returns metadata.
     """
     if "file" not in request.files:
         return jsonify({"success": False, "error": "No file provided"}), 400
@@ -428,11 +439,27 @@ def upload_file():
             err_msg = info.get("error") or "Unreadable or corrupted PDF."
             return jsonify({"success": False, "error": err_msg}), 400
 
-        # Max page safety limit
-        if info.get("pages", 0) > 100:
+        # Safety page limit (scaled to 300 pages for project manuals)
+        if info.get("pages", 0) > 300:
             if os.path.exists(dest):
                 os.remove(dest)
-            return jsonify({"success": False, "error": "PDF exceeds 100-page limit."}), 400
+            return jsonify({"success": False, "error": "PDF exceeds 300-page limit."}), 400
+
+        # Record diagnostic telemetry for research and format discovery
+        try:
+            record_upload_diagnostic(
+                sha256=actual_hash,
+                filename=f.filename or f"{actual_hash}.pdf",
+                file_size=total_bytes,
+                pages=info.get("pages", 0),
+                extracted_aim=info.get("aim"),
+                extracted_exp_num=info.get("exp_num"),
+                extraction_method=info.get("extraction_method", "unextracted"),
+                failure_reason=info.get("failure_reason", "none"),
+                text_snippet=info.get("text_snippet", ""),
+            )
+        except Exception:
+            pass
 
         return jsonify({
             "success": True,
@@ -442,6 +469,8 @@ def upload_file():
             "aim": info.get("aim"),
             "exp_num": info.get("exp_num"),
             "is_assignment": info.get("is_assignment"),
+            "extraction_method": info.get("extraction_method", "unextracted"),
+            "failure_reason": info.get("failure_reason", "none"),
         })
 
     except Exception as e:
@@ -537,8 +566,8 @@ def generate_pdfs():
     if not experiments:
         return jsonify({"success": False, "error": "No experiments provided."}), 400
 
-    if len(experiments) > 30:
-        return jsonify({"success": False, "error": "Batch limit exceeded (maximum 30 experiments allowed per compilation)."}), 400
+    if len(experiments) > 60:
+        return jsonify({"success": False, "error": "Batch limit exceeded (maximum 60 experiments allowed per compilation)."}), 400
 
     # Enforce quota before job directory creation
     try:
@@ -549,6 +578,12 @@ def generate_pdfs():
     job_id = uuid.uuid4().hex
 
     try:
+        # Record student ground truth for research and format discovery
+        try:
+            record_student_ground_truth(experiments)
+        except Exception:
+            pass
+
         formatting = req_data.get("formatting", {})
         result = generate_job_documents(
             student=student,
@@ -744,6 +779,47 @@ def analytics_export():
             )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/analytics/diagnostics", methods=["GET"])
+@limiter.limit("60 per minute")
+def analytics_diagnostics():
+    """Returns extraction diagnostics summary and list of failed/discrepant samples for format analysis."""
+    is_auth, err_resp = _check_analytics_auth()
+    if not is_auth:
+        return err_resp
+    try:
+        summary = get_extraction_diagnostics_summary()
+        limit = min(max(int(request.args.get("limit", 50)), 1), 200)
+        offset = max(int(request.args.get("offset", 0)), 0)
+        samples, total = get_failed_or_discrepant_samples(limit=limit, offset=offset)
+        return jsonify({
+            "success": True,
+            "data": {
+                "summary": summary,
+                "samples": samples,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/analytics/sample/<hash_val>", methods=["GET"])
+def download_diagnostic_sample(hash_val):
+    """Allows authenticated admins to download a raw uploaded PDF for local format/parser analysis."""
+    is_auth, err_resp = _check_analytics_auth()
+    if not is_auth:
+        return err_resp
+    hash_val = hash_val.lower().strip()
+    if not _valid_hash(hash_val):
+        return jsonify({"error": "Invalid hash"}), 400
+    sample_path = os.path.join(UPLOADS_DIR, f"{hash_val}.pdf")
+    if os.path.isfile(sample_path):
+        return send_file(sample_path, as_attachment=True, download_name=f"sample_{hash_val[:12]}.pdf")
+    return jsonify({"error": "Sample PDF not found on disk"}), 404
 
 
 # ── Entrypoint ─────────────────────────────────────────────────────────────────

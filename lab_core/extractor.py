@@ -40,21 +40,37 @@ def inspect_pdf_info(pdf_path: str, mode: str = 'auto') -> dict:
     :param mode: Extraction mode ('auto', 'first_period', or 'header_title').
     :return: dict with keys: 'aim', 'pages', 'exp_num', 'is_assignment'
     """
-    info = {"aim": None, "pages": 0, "exp_num": None, "is_assignment": None}
+    info = {
+        "aim": None,
+        "pages": 0,
+        "exp_num": None,
+        "is_assignment": None,
+        "extraction_method": "unextracted",
+        "failure_reason": "none",
+        "text_snippet": "",
+        "page1_has_images": False,
+    }
     if not os.path.exists(pdf_path):
+        info["failure_reason"] = "file_not_found"
         return info
 
     try:
         doc = fitz.open(pdf_path)
         if doc.is_encrypted:
             info["error"] = "PDF is password-protected / encrypted."
+            info["failure_reason"] = "password_protected"
             doc.close()
             return info
 
         info["pages"] = len(doc)
         if len(doc) > 0:
-            text = doc[0].get_text()
+            page1 = doc[0]
+            text = page1.get_text()
             lines = [l.strip() for l in text.splitlines() if l.strip()]
+            img_list = page1.get_images()
+            has_images = len(img_list) > 0
+            is_scanned = len(text.strip()) < 30 and has_images
+            failure_reasons = []
 
             # 1. Detect Exp/Assign Number and Type from PDF Page 1 text
             roman_re = r'(?:xv|xiv|xiii|xii|xi|x|ix|viii|vii|vi|v|iv|iii|ii|i)'
@@ -126,24 +142,59 @@ def inspect_pdf_info(pdf_path: str, mode: str = 'auto') -> dict:
 
             full_aim_text = ' '.join(aim_lines).strip()
             if full_aim_text:
-                # Find sentence boundary that doesn't truncate at abbreviations (e.g., i.e.) or numbers (e.g. 18.0)
                 boundary = re.search(r'(?<!\be\.g)(?<!\bi\.e)(?<!\bvs)(?<!\bfig)(?<!\bno)(?<!\bv)(?<!\b[0-9])\.(?:\s+|$)', full_aim_text, re.IGNORECASE)
                 if boundary:
                     aim_first_period = full_aim_text[:boundary.start() + 1].strip()
                 else:
                     aim_first_period = full_aim_text
 
-            # Apply requested mode logic
-            if mode == 'header_title':
-                info["aim"] = header_title or aim_first_period
-            elif mode == 'first_period':
-                info["aim"] = aim_first_period or header_title
-            else:  # auto
-                info["aim"] = aim_first_period or header_title
+            # 5. Method C: Fallback to Filename Title parsing
+            filename_title = None
+            if not aim_first_period and not header_title:
+                fname_clean = os.path.splitext(os.path.basename(pdf_path))[0]
+                fn_title_match = re.search(
+                    rf'(?:Exp|Experiment|Expt|Practical|Prac|Lab|Assignment|Assign|Assgn|Task)?[\s\-_.]*(?:No|Num|Number)?[\s:_#.-]*(?:\d+[a-z]?|\b{roman_re}\b)?[\s:_.\-#]+\s*(.+)$',
+                    fname_clean,
+                    re.IGNORECASE,
+                )
+                if fn_title_match:
+                    cand = fn_title_match.group(1).strip()
+                    if len(cand) > 3 and not cand.lower().startswith(('report', 'document', 'pdf', 'scan')):
+                        filename_title = cand
+
+            # Resolve title and determine diagnostic method & failure reasons
+            if mode == 'header_title' and header_title:
+                info["aim"] = header_title
+                info["extraction_method"] = "header_title"
+            elif aim_first_period:
+                info["aim"] = aim_first_period
+                info["extraction_method"] = "aim_keyword"
+            elif header_title:
+                info["aim"] = header_title
+                info["extraction_method"] = "header_title"
+            elif filename_title:
+                info["aim"] = filename_title
+                info["extraction_method"] = "filename_heuristic"
+            else:
+                info["aim"] = None
+                if is_scanned:
+                    info["extraction_method"] = "scanned_no_text"
+                    failure_reasons.append("no_text_layer")
+                else:
+                    info["extraction_method"] = "unextracted"
+                    failure_reasons.append("no_aim_keyword")
+
+            if not info["exp_num"]:
+                failure_reasons.append("no_exp_number_found")
+
+            info["failure_reason"] = ", ".join(failure_reasons) if failure_reasons else "none"
+            info["text_snippet"] = text[:600].strip() if text else ""
+            info["page1_has_images"] = has_images
 
         doc.close()
     except Exception as e:
         info["error"] = f"Unreadable PDF: {e}"
+        info["failure_reason"] = f"unreadable_error: {e}"
         print(f"Warning: Could not inspect PDF {pdf_path}: {e}")
 
     return info
