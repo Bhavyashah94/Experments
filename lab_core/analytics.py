@@ -70,8 +70,14 @@ def get_db_connection(db_path: Optional[str] = None) -> sqlite3.Connection:
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
 
-    conn = sqlite3.connect(path, timeout=10.0)
+    conn = sqlite3.connect(path, timeout=30.0)
     conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("PRAGMA journal_mode = WAL;")
+        conn.execute("PRAGMA synchronous = NORMAL;")
+        conn.execute("PRAGMA busy_timeout = 15000;")
+    except Exception:
+        pass
 
     if path not in _INITIALIZED_DBS:
         try:
@@ -379,6 +385,15 @@ def get_generation_events(
         conn.close()
 
 
+def _sanitize_csv_cell(val: Any) -> Any:
+    """Escapes leading spreadsheet formula injection characters (=, +, -, @, \\t, \\r)."""
+    if isinstance(val, str):
+        s = val.strip()
+        if s.startswith(("=", "+", "-", "@", "\t", "\r")):
+            return f"'{s}"
+    return val
+
+
 def export_analytics_csv(db_path: Optional[str] = None) -> str:
     """
     Exports all recorded generation events as standard RFC 4180 CSV string.
@@ -414,20 +429,20 @@ def export_analytics_csv(db_path: Optional[str] = None) -> str:
             exp_summary_list.append(f"{prefix} {lbl}: {title}" if title else f"{prefix} {lbl}")
 
         writer.writerow([
-            ev["id"],
-            ev["timestamp"],
-            ev["student_name"],
-            ev["roll_no"],
-            ev["batch"],
-            ev["class_name"],
-            ev["sem"],
-            ev["subject"],
-            ev["experiment_count"],
-            ev["generation_type"],
-            "SUCCESS" if ev["success"] else "FAILED",
-            ev["duration_ms"],
-            ev["error_message"] or "",
-            " | ".join(exp_summary_list),
+            _sanitize_csv_cell(ev["id"]),
+            _sanitize_csv_cell(ev["timestamp"]),
+            _sanitize_csv_cell(ev["student_name"]),
+            _sanitize_csv_cell(ev["roll_no"]),
+            _sanitize_csv_cell(ev["batch"]),
+            _sanitize_csv_cell(ev["class_name"]),
+            _sanitize_csv_cell(ev["sem"]),
+            _sanitize_csv_cell(ev["subject"]),
+            _sanitize_csv_cell(ev["experiment_count"]),
+            _sanitize_csv_cell(ev["generation_type"]),
+            _sanitize_csv_cell("SUCCESS" if ev["success"] else "FAILED"),
+            _sanitize_csv_cell(ev["duration_ms"]),
+            _sanitize_csv_cell(ev["error_message"] or ""),
+            _sanitize_csv_cell(" | ".join(exp_summary_list)),
         ])
 
     return output.getvalue()

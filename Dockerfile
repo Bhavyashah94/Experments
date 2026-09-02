@@ -16,11 +16,6 @@ RUN useradd -m -u 1000 user
 
 WORKDIR /app
 
-# Install system dependencies for PyMuPDF & Pillow
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
 # Install Python requirements
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -31,8 +26,8 @@ COPY --chown=user:user . .
 # Copy compiled frontend distribution from Stage 1 into frontend/dist
 COPY --from=frontend-builder --chown=user:user /build/dist ./frontend/dist
 
-# Create uploads & output directories with appropriate permissions
-RUN mkdir -p /app/uploads /app/output && chown -R user:user /app
+# Create uploads, output, and data directories with appropriate permissions
+RUN mkdir -p /app/uploads /app/output /app/data && chown -R user:user /app
 
 # Switch to non-root user
 USER user

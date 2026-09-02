@@ -5,7 +5,10 @@ export class DateScheduler {
     if (parts.length === 3) {
       const [d, m, y] = parts;
       if (d >= 1 && d <= 31 && m >= 1 && m <= 12 && y >= 1900) {
-        return new Date(y, m - 1, d);
+        const dt = new Date(y, m - 1, d);
+        if (dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d) {
+          return dt;
+        }
       }
     }
     return null;

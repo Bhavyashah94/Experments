@@ -139,7 +139,11 @@ def main():
 
     combined_doc = fitz.open() if combine_pdf else None
     toc_entries = []
-    toc_page_count = 1 if (include_toc and len(found_files) <= 20) else (1 + (len(found_files) - 20) // 24 + 1 if include_toc else 0)
+    if include_toc:
+        total_found = len(found_files)
+        toc_page_count = 1 if total_found <= 20 else 1 + math.ceil((total_found - 20) / 24)
+    else:
+        toc_page_count = 0
     current_page_counter = toc_page_count + 1 if include_toc else 1
     processed_count = 0
 

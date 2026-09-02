@@ -5,8 +5,8 @@ services:
     plan: free
     region: oregon
     branch: main
-    buildCommand: "pip install -r requirements.txt && (cd frontend && npm install && npm run build)"
-    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120"
+    buildCommand: "export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 && pip install -r requirements.txt && (cd frontend && npm install && npm run build)"
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120"
     healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION

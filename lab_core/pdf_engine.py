@@ -42,7 +42,15 @@ def parse_color(color: Any) -> Tuple[float, float, float]:
         return NAMED_COLORS[c_str]
 
     c_clean = c_str.lstrip("#")
-    if len(c_clean) == 6:
+    if len(c_clean) == 3:
+        try:
+            r = int(c_clean[0] * 2, 16) / 255.0
+            g = int(c_clean[1] * 2, 16) / 255.0
+            b = int(c_clean[2] * 2, 16) / 255.0
+            return (r, g, b)
+        except ValueError:
+            return (0.0, 0.0, 0.75)
+    elif len(c_clean) == 6:
         try:
             r = int(c_clean[0:2], 16) / 255.0
             g = int(c_clean[2:4], 16) / 255.0
@@ -226,30 +234,23 @@ def resolve_body_pdf(
 ) -> Optional[str]:
     """
     Resolves the physical filesystem path for an experiment's attached body PDF.
-    Supports hash-based lookups, direct relative paths, and legacy 'Experiment {num}.pdf' paths.
+    Strictly validates content-addressed hashes to prevent Local File Inclusion (LFI).
     """
-    # 1. Content-addressed hash lookup (used by modern Web UI)
-    file_hash = item.get("hash")
-    if file_hash:
-        candidate = os.path.join(uploads_dir, f"{file_hash}.pdf")
-        if os.path.exists(candidate):
+    # 1. Content-addressed hash lookup (used by Web UI)
+    file_hash = str(item.get("hash") or "").strip().lower()
+    if file_hash and len(file_hash) == 64 and all(c in "0123456789abcdef" for c in file_hash):
+        candidate = os.path.abspath(os.path.join(uploads_dir, f"{file_hash}.pdf"))
+        uploads_root = os.path.abspath(uploads_dir)
+        if candidate.startswith(uploads_root + os.sep) and os.path.isfile(candidate):
             return candidate
 
-    # 2. Direct absolute or relative path lookup
-    direct_path = item.get("path")
-    if direct_path:
-        if os.path.isabs(direct_path) and os.path.exists(direct_path):
-            return direct_path
-        if base_dir:
-            cand = os.path.join(base_dir, direct_path)
-            if os.path.exists(cand):
-                return cand
-
-    # 3. Fallback to filename in base_dir
+    # 2. Safe local filename lookup (used by CLI fill_headers.py and tests)
     filename = item.get("filename")
     if filename and base_dir:
-        cand = os.path.join(base_dir, filename)
-        if os.path.exists(cand):
+        safe_fn = os.path.basename(filename)
+        cand = os.path.abspath(os.path.join(base_dir, safe_fn))
+        base_root = os.path.abspath(base_dir)
+        if cand.startswith(base_root + os.sep) and os.path.isfile(cand):
             return cand
 
     return None
@@ -334,11 +335,9 @@ def generate_job_documents(
                 "sub_date": sub_d,
             }
 
-            # 1. Fill and save standalone header
+            # 1. Fill header in-memory (no dead standalone disk write)
             header_doc = create_filled_header_doc(template_path, data, formatting)
             safe_label = re.sub(r"[^\w\-]", "_", label)
-            header_path = os.path.join(headers_dir, f"Header_{safe_label}.pdf")
-            header_doc.save(header_path, garbage=4, deflate=True)
 
             # 2. Merge header + experiment body
             merged_doc = fitz.open()
@@ -347,10 +346,16 @@ def generate_job_documents(
 
             body_path = resolve_body_pdf(item, uploads_dir, base_dir)
             if body_path:
-                body_doc = fitz.open(body_path)
-                body_pages_count = len(body_doc)
-                merged_doc.insert_pdf(body_doc)
-                body_doc.close()
+                try:
+                    body_doc = fitz.open(body_path)
+                    if body_doc.is_encrypted:
+                        if not body_doc.authenticate(""):
+                            raise fitz.PasswordError("Encrypted PDF without open permission.")
+                    body_pages_count = len(body_doc)
+                    merged_doc.insert_pdf(body_doc)
+                    body_doc.close()
+                except Exception:
+                    body_pages_count = 0
 
             # Page count for this experiment is 1 (header) + body pages
             total_exp_pages = 1 + body_pages_count
@@ -393,15 +398,29 @@ def generate_job_documents(
             header_doc.close()
             merged_doc.close()
 
-        # Generate & Prepend TOC page(s) if enabled
+        # Generate & Prepend TOC page(s) if enabled (Zero-copy in-memory prepend)
         if include_toc:
-            toc_doc = generate_toc_page(student, toc_entries, formatting)
-            master_combined = fitz.open()
-            master_combined.insert_pdf(toc_doc)
-            master_combined.insert_pdf(combined_doc)
-            toc_doc.close()
-            combined_doc.close()
-            combined_doc = master_combined
+            with generate_toc_page(student, toc_entries, formatting) as toc_doc:
+                combined_doc.insert_pdf(toc_doc, start_at=0)
+
+            # Add in-page clickable table row links now that combined_doc contains all destination pages
+            try:
+                entry_idx = 0
+                for page_num in range(toc_page_count):
+                    toc_p = combined_doc[page_num]
+                    page_cap = 20 if page_num == 0 else 24
+                    table_top = 265 if page_num == 0 else 55
+                    curr_y = table_top + 22
+                    page_entries = toc_entries[entry_idx : entry_idx + page_cap]
+                    entry_idx += len(page_entries)
+                    for item in page_entries:
+                        target_p = item.get("start_page")
+                        if target_p and 0 <= (target_p - 1) < len(combined_doc):
+                            row_rect = fitz.Rect(45, curr_y, 565, curr_y + 20)
+                            toc_p.insert_link({"kind": fitz.LINK_GOTO, "from": row_rect, "page": target_p - 1})
+                        curr_y += 20
+            except Exception:
+                pass
 
         # Construct meaningful, student-friendly filenames
         roll_no = str(student.get("roll_no", "")).strip()
@@ -451,9 +470,9 @@ def generate_job_documents(
             deflate_fonts=True,
         )
 
-        # Create ZIP archive inside job_output_dir with deflate compression
+        # Create ZIP archive inside job_output_dir using ZIP_STORED (fast packaging of deflated PDFs)
         zip_path = os.path.join(job_output_dir, zip_filename)
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_STORED) as zf:
             zf.write(combined_path, combined_filename)
             for fpath, arcname in zip_entries:
                 zf.write(fpath, os.path.join("Individual_Files", arcname))

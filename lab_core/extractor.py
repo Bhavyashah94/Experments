@@ -57,9 +57,10 @@ def inspect_pdf_info(pdf_path: str, mode: str = 'auto') -> dict:
             lines = [l.strip() for l in text.splitlines() if l.strip()]
 
             # 1. Detect Exp/Assign Number and Type from PDF Page 1 text
+            roman_re = r'(?:xv|xiv|xiii|xii|xi|x|ix|viii|vii|vi|v|iv|iii|ii|i)'
             for line in lines[:20]:
                 match = re.search(
-                    r'\b(Exp|Experiment|Practical|Prac|Lab|Assignment|Assign|Assgn|Task)[\s\-_.]*(?:No|Num|Number|Session|Exercise)?[\s:_#.-]*(\d+[a-z]?|[ivx]+)\b',
+                    rf'\b(Exp|Experiment|Expt|Practical|Prac|Lab|Assignment|Assign|Assgn|Task)[\s\-_.]*(?:No|Num|Number|Session|Exercise)?[\s:_#.-]*(\d+[a-z]?|\b{roman_re}\b)\b',
                     line,
                     re.IGNORECASE,
                 )
@@ -74,7 +75,7 @@ def inspect_pdf_info(pdf_path: str, mode: str = 'auto') -> dict:
             if not info["exp_num"]:
                 filename = os.path.basename(pdf_path)
                 fn_match = re.search(
-                    r'\b(Exp|Experiment|Practical|Prac|Lab|Assignment|Assign|Assgn|Task)[\s\-_.]*(\d+[a-z]?|[ivx]+)\b',
+                    rf'\b(Exp|Experiment|Expt|Practical|Prac|Lab|Assignment|Assign|Assgn|Task)[\s\-_.]*(\d+[a-z]?|\b{roman_re}\b)\b',
                     filename,
                     re.IGNORECASE,
                 )
@@ -88,7 +89,7 @@ def inspect_pdf_info(pdf_path: str, mode: str = 'auto') -> dict:
             header_title = None
             for line in lines[:20]:
                 exp_title_match = re.search(
-                    r'\b(?:Exp|Experiment|Practical|Prac|Lab|Assignment|Assign|Assgn|Task)[\s\-_.]*(?:No|Num|Number|Session|Exercise)?[\s:_#.-]*(?:\d+[a-z]?|[ivx]+)[\s:_.\-#]+\s*(.+)$',
+                    rf'\b(?:Exp|Experiment|Expt|Practical|Prac|Lab|Assignment|Assign|Assgn|Task)[\s\-_.]*(?:No|Num|Number|Session|Exercise)?[\s:_#.-]*(?:\d+[a-z]?|\b{roman_re}\b)[\s:_.\-#]+\s*(.+)$',
                     line,
                     re.IGNORECASE,
                 )
@@ -125,9 +126,10 @@ def inspect_pdf_info(pdf_path: str, mode: str = 'auto') -> dict:
 
             full_aim_text = ' '.join(aim_lines).strip()
             if full_aim_text:
-                period_pos = full_aim_text.find('.')
-                if period_pos != -1:
-                    aim_first_period = full_aim_text[:period_pos + 1].strip()
+                # Find sentence boundary that doesn't truncate at abbreviations (e.g., i.e.) or numbers (e.g. 18.0)
+                boundary = re.search(r'(?<!\be\.g)(?<!\bi\.e)(?<!\bvs)(?<!\bfig)(?<!\bno)(?<!\bv)(?<!\b[0-9])\.(?:\s+|$)', full_aim_text, re.IGNORECASE)
+                if boundary:
+                    aim_first_period = full_aim_text[:boundary.start() + 1].strip()
                 else:
                     aim_first_period = full_aim_text
 
@@ -141,6 +143,7 @@ def inspect_pdf_info(pdf_path: str, mode: str = 'auto') -> dict:
 
         doc.close()
     except Exception as e:
+        info["error"] = f"Unreadable PDF: {e}"
         print(f"Warning: Could not inspect PDF {pdf_path}: {e}")
 
     return info

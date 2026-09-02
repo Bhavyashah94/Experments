@@ -159,3 +159,34 @@ def test_storage_quota_and_health_metrics(client, monkeypatch, tmp_path):
     # f1 should be evicted (older), f2 should remain
     assert not os.path.exists(f1)
     assert os.path.exists(f2)
+
+
+def test_download_security_sandboxing(client):
+    """Verifies that arbitrary source files outside OUTPUT_DIR cannot be downloaded."""
+    # Attempt to download source code or configs
+    res_app = client.get("/api/download/app.py")
+    assert res_app.status_code in (404, 400)
+
+    res_cfg = client.get("/api/download/config.json")
+    assert res_cfg.status_code in (404, 400)
+
+    # Legitimate template header access
+    res_hdr1 = client.get("/Header.pdf")
+    assert res_hdr1.status_code == 200
+    assert res_hdr1.data.startswith(b"%PDF")
+
+    res_hdr2 = client.get("/api/download/Header.pdf")
+    assert res_hdr2.status_code == 200
+    assert res_hdr2.data.startswith(b"%PDF")
+
+
+def test_batch_experiment_limit(client):
+    """Verifies that exceeding the 30-experiment batch limit returns HTTP 400."""
+    payload = {
+        "student": {"name": "Test Student"},
+        "experiments": [{"label": str(i), "title": f"Exp {i}"} for i in range(35)],
+    }
+    res = client.post("/api/generate", json=payload)
+    assert res.status_code == 400
+    data = res.get_json()
+    assert "Batch limit exceeded" in data["error"]

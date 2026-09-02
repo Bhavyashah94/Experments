@@ -31,8 +31,19 @@ app = Flask(__name__, static_folder="static", template_folder="templates")
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024  # 25 MB max upload size
 
-# Enable CORS for development (Vite port 5173) and production CDN domains
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+# Enable CORS for API routes, Header.pdf template, and assets
+CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": "*",
+            "methods": ["GET", "POST", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+        },
+        r"/Header.pdf": {"origins": "*"},
+        r"/assets/*": {"origins": "*"},
+    },
+)
 
 # Rate limiter setup
 limiter = Limiter(
@@ -41,6 +52,29 @@ limiter = Limiter(
     default_limits=["1000 per hour", "200 per minute"],
     storage_uri="memory://",
 )
+
+# ── Standardized JSON Error Handlers (Prevents client-side JSON parse crashes) ──
+@app.errorhandler(400)
+def handle_400(e):
+    msg = e.description if hasattr(e, "description") else "Bad request"
+    return jsonify({"success": False, "error": msg}), 400
+
+@app.errorhandler(404)
+def handle_404(e):
+    return jsonify({"success": False, "error": "Resource not found"}), 404
+
+@app.errorhandler(413)
+def handle_413(e):
+    return jsonify({"success": False, "error": "Payload too large. Maximum file upload size is 25 MB."}), 413
+
+@app.errorhandler(429)
+def handle_429(e):
+    desc = e.description if hasattr(e, "description") else "Too many requests"
+    return jsonify({"success": False, "error": f"Rate limit exceeded: {desc}"}), 429
+
+@app.errorhandler(500)
+def handle_500(e):
+    return jsonify({"success": False, "error": "Internal server error."}), 500
 
 # ── Directories ───────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -231,6 +265,14 @@ def serve_spa_assets(filename):
     return ("Asset not found", 404)
 
 
+@app.route("/Header.pdf")
+def serve_header_template():
+    """Serves the standard template Header.pdf for client-side canvas preview rendering."""
+    if os.path.isfile(TEMPLATE_HEADER):
+        return send_file(TEMPLATE_HEADER, mimetype="application/pdf")
+    return jsonify({"error": "Template Header.pdf not found"}), 404
+
+
 @app.route("/api/health", methods=["GET"])
 def health_check():
     """Health check endpoint for Render/HuggingFace cold-start handshakes and monitoring."""
@@ -309,7 +351,13 @@ def file_exists(hash_val):
         age = time.time() - os.path.getmtime(fpath)
         if age <= UPLOADS_TTL_SECONDS:
             info = inspect_pdf_info(fpath)
-            return jsonify({"exists": True, "pages": info.get("pages", 0)})
+            return jsonify({
+                "exists": True,
+                "pages": info.get("pages", 0),
+                "aim": info.get("aim"),
+                "exp_num": info.get("exp_num"),
+                "is_assignment": info.get("is_assignment"),
+            })
     return jsonify({"exists": False}), 404
 
 
@@ -328,6 +376,12 @@ def upload_file():
 
     if not f.filename or not f.filename.lower().endswith(".pdf"):
         return jsonify({"success": False, "error": "Only PDF files are accepted"}), 400
+
+    # Verify %PDF- magic bytes to reject disguised non-PDF binaries
+    header_peek = f.stream.read(5)
+    f.stream.seek(0)
+    if header_peek != b"%PDF-":
+        return jsonify({"success": False, "error": "Invalid file format: must be a valid PDF document."}), 400
 
     # Ensure storage quota before allocating disk
     try:
@@ -366,6 +420,13 @@ def upload_file():
         # Inspect PDF
         mode = request.form.get("mode", "auto")
         info = inspect_pdf_info(dest, mode=mode)
+
+        # Check for unreadable / password-protected / corrupted PDF
+        if info.get("error") or info.get("pages", 0) <= 0:
+            if os.path.exists(dest):
+                os.remove(dest)
+            err_msg = info.get("error") or "Unreadable or corrupted PDF."
+            return jsonify({"success": False, "error": err_msg}), 400
 
         # Max page safety limit
         if info.get("pages", 0) > 100:
@@ -476,6 +537,9 @@ def generate_pdfs():
     if not experiments:
         return jsonify({"success": False, "error": "No experiments provided."}), 400
 
+    if len(experiments) > 30:
+        return jsonify({"success": False, "error": "Batch limit exceeded (maximum 30 experiments allowed per compilation)."}), 400
+
     # Enforce quota before job directory creation
     try:
         _enforce_storage_quota()
@@ -529,21 +593,23 @@ def generate_pdfs():
 @app.route("/api/download/<path:filepath>")
 def download_file(filepath):
     """
-    Serves generated PDFs and ZIP packages with path-traversal protection.
+    Serves generated PDFs and ZIP packages with strict path-traversal protection.
+    Restricted strictly to OUTPUT_DIR to prevent arbitrary local file reads.
     """
     norm_path = os.path.normpath(filepath).lstrip("/\\")
-    if ".." in norm_path:
+    if ".." in norm_path or norm_path.startswith(("/", "\\")):
         return jsonify({"error": "Invalid path"}), 400
 
-    # 1. Search in OUTPUT_DIR
-    candidate_output = os.path.join(OUTPUT_DIR, norm_path)
-    if os.path.isfile(candidate_output) and os.path.abspath(candidate_output).startswith(os.path.abspath(OUTPUT_DIR)):
-        return send_file(candidate_output, as_attachment=True)
+    # Special-case template header if requested via download route
+    if norm_path == "Header.pdf" and os.path.isfile(TEMPLATE_HEADER):
+        return send_file(TEMPLATE_HEADER, mimetype="application/pdf")
 
-    # 2. Search in BASE_DIR
-    candidate_base = os.path.join(BASE_DIR, norm_path)
-    if os.path.isfile(candidate_base) and os.path.abspath(candidate_base).startswith(os.path.abspath(BASE_DIR)):
-        return send_file(candidate_base, as_attachment=True)
+    # Strictly search in OUTPUT_DIR only
+    candidate_output = os.path.abspath(os.path.join(OUTPUT_DIR, norm_path))
+    output_root = os.path.abspath(OUTPUT_DIR)
+
+    if candidate_output.startswith(output_root + os.sep) and os.path.isfile(candidate_output):
+        return send_file(candidate_output, as_attachment=True)
 
     return jsonify({"error": "File not found"}), 404
 
