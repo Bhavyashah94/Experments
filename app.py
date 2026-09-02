@@ -275,7 +275,7 @@ def serve_header_template():
 
 @app.route("/api/health", methods=["GET"])
 def health_check():
-    """Health check endpoint for Render/HuggingFace cold-start handshakes and monitoring."""
+    """Health check endpoint for Oracle/HuggingFace container monitoring and uptime checks."""
     uploads_sz = _get_dir_size(UPLOADS_DIR)
     output_sz = _get_dir_size(OUTPUT_DIR)
     return jsonify({
