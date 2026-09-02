@@ -393,21 +393,26 @@ onMounted(() => {
             </div>
 
             <div v-if="summary?.daily_trends?.length" class="space-y-2 pt-2">
-              <div class="h-40 flex items-end gap-1.5 pt-4">
+              <div class="h-40 flex items-end justify-start gap-3 pt-4 overflow-x-auto pb-1">
                 <div
                   v-for="trend in summary.daily_trends"
                   :key="trend.date"
-                  class="flex-1 flex flex-col items-center gap-1 group relative h-full justify-end"
+                  class="w-10 flex flex-col items-center gap-1 group relative h-full justify-end shrink-0"
                 >
                   <!-- Tooltip -->
                   <div class="absolute -top-8 bg-zinc-900 border border-border text-white text-[10px] px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition z-20 whitespace-nowrap">
                     {{ trend.date }}: {{ trend.count }} runs ({{ trend.successes }} ok)
                   </div>
 
+                  <!-- Value -->
+                  <span class="text-[10px] font-mono text-zinc-400 group-hover:text-white transition">
+                    {{ trend.count }}
+                  </span>
+
                   <!-- Bar -->
                   <div
                     class="w-full bg-zinc-700 group-hover:bg-white rounded-t transition-all"
-                    :style="{ height: `${Math.max((trend.count / maxDailyCount) * 100, 8)}%` }"
+                    :style="{ height: `${Math.max((trend.count / maxDailyCount) * 75, 8)}%` }"
                   ></div>
 
                   <!-- Date label -->

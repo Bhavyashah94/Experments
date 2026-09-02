@@ -60,6 +60,9 @@ def verify_admin_password(candidate: Optional[str]) -> bool:
     return hmac.compare_digest(candidate.encode("utf-8"), expected.encode("utf-8"))
 
 
+_INITIALIZED_DBS = set()
+
+
 def get_db_connection(db_path: Optional[str] = None) -> sqlite3.Connection:
     """Creates a connection to SQLite database and ensures schema and indexes exist."""
     path = db_path or get_db_path()
@@ -69,41 +72,44 @@ def get_db_connection(db_path: Optional[str] = None) -> sqlite3.Connection:
 
     conn = sqlite3.connect(path, timeout=10.0)
     conn.row_factory = sqlite3.Row
+
+    if path not in _INITIALIZED_DBS:
+        try:
+            with conn:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS generation_events (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        timestamp TEXT NOT NULL,
+                        student_name TEXT,
+                        roll_no TEXT,
+                        batch TEXT,
+                        class_name TEXT,
+                        sem TEXT,
+                        subject TEXT,
+                        experiment_count INTEGER NOT NULL DEFAULT 0,
+                        experiments_json TEXT,
+                        generation_type TEXT NOT NULL DEFAULT 'batch_package',
+                        success INTEGER NOT NULL DEFAULT 1,
+                        error_message TEXT,
+                        duration_ms REAL NOT NULL DEFAULT 0.0
+                    );
+                """)
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_timestamp ON generation_events(timestamp);")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_roll_no ON generation_events(roll_no);")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_subject ON generation_events(subject);")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_student ON generation_events(student_name, roll_no);")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_success ON generation_events(success);")
+            _INITIALIZED_DBS.add(path)
+        except Exception:
+            pass
+
     return conn
 
 
 def init_analytics_db(db_path: Optional[str] = None) -> None:
-    """Initializes the generation_events table and required performance indexes."""
+    """Explicitly initializes the generation_events table and required performance indexes."""
     conn = get_db_connection(db_path)
-    try:
-        with conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS generation_events (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TEXT NOT NULL,
-                    student_name TEXT,
-                    roll_no TEXT,
-                    batch TEXT,
-                    class_name TEXT,
-                    sem TEXT,
-                    subject TEXT,
-                    experiment_count INTEGER NOT NULL DEFAULT 0,
-                    experiments_json TEXT,
-                    generation_type TEXT NOT NULL DEFAULT 'batch_package',
-                    success INTEGER NOT NULL DEFAULT 1,
-                    error_message TEXT,
-                    duration_ms REAL NOT NULL DEFAULT 0.0
-                );
-            """)
-
-            # High-performance indexes for dashboard filtering and aggregation
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_timestamp ON generation_events(timestamp);")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_roll_no ON generation_events(roll_no);")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_subject ON generation_events(subject);")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_student ON generation_events(student_name, roll_no);")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_success ON generation_events(success);")
-    finally:
-        conn.close()
+    conn.close()
 
 
 def record_generation_event(
@@ -199,7 +205,11 @@ def get_analytics_summary(db_path: Optional[str] = None) -> Dict[str, Any]:
                 COALESCE(SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END), 0) as failed_events,
                 COALESCE(AVG(duration_ms), 0.0) as avg_duration_ms,
                 COALESCE(SUM(experiment_count), 0) as total_experiments_generated,
-                COUNT(DISTINCT CASE WHEN roll_no IS NOT NULL AND roll_no != '' THEN roll_no ELSE student_name END) as unique_students
+                COUNT(DISTINCT CASE
+                    WHEN roll_no IS NOT NULL AND TRIM(roll_no) != '' THEN 'roll_' || roll_no
+                    WHEN student_name IS NOT NULL AND TRIM(student_name) != '' THEN 'name_' || student_name
+                    ELSE 'anon_' || id
+                END) as unique_students
             FROM generation_events;
         """)
         row = cur.fetchone()

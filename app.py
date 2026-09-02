@@ -51,6 +51,12 @@ UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
 for d in (OUTPUT_DIR, UPLOADS_DIR):
     os.makedirs(d, exist_ok=True)
 
+if is_analytics_enabled():
+    try:
+        init_analytics_db()
+    except Exception:
+        pass
+
 # ── Background Ephemeral Sweeper & LRU Storage Quota Manager ──────────────────
 UPLOADS_TTL_SECONDS = 24 * 60 * 60   # 24 hours for uploaded files
 JOBS_TTL_SECONDS = 2 * 60 * 60       # 2 hours for generated job output packages
