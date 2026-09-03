@@ -33,5 +33,5 @@ USER user
 # Reverse-proxied port 7860
 EXPOSE 7860
 
-# Run Gunicorn on port 7860 with 120s timeout
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:7860", "--workers", "2", "--threads", "4", "--timeout", "120"]
+# Run Gunicorn on port 7860 with 120s timeout and worker recycling for 1GB RAM safety
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:7860", "--workers", "2", "--threads", "4", "--timeout", "120", "--max-requests", "500", "--max-requests-jitter", "50"]

@@ -408,16 +408,17 @@ def generate_job_documents(
                 for page_num in range(toc_page_count):
                     toc_p = combined_doc[page_num]
                     page_cap = 20 if page_num == 0 else 24
-                    table_top = 265 if page_num == 0 else 55
+                    table_top = 148 if page_num == 0 else 80
+                    row_height = 28
                     curr_y = table_top + 22
                     page_entries = toc_entries[entry_idx : entry_idx + page_cap]
                     entry_idx += len(page_entries)
                     for item in page_entries:
                         target_p = item.get("start_page")
                         if target_p and 0 <= (target_p - 1) < len(combined_doc):
-                            row_rect = fitz.Rect(45, curr_y, 565, curr_y + 20)
+                            row_rect = fitz.Rect(45, curr_y, 565, curr_y + row_height)
                             toc_p.insert_link({"kind": fitz.LINK_GOTO, "from": row_rect, "page": target_p - 1})
-                        curr_y += 20
+                        curr_y += row_height
             except Exception:
                 pass
 

@@ -309,7 +309,7 @@ def health_check():
     output_sz = _get_dir_size(OUTPUT_DIR)
     return jsonify({
         "status": "ok",
-        "version": "2.1.0",
+        "version": "3.0.0",
         "uptime_seconds": int(time.time() - APP_START_TIME),
         "storage": {
             "used_bytes": uploads_sz + output_sz,
@@ -515,11 +515,10 @@ def extract_aim():
 def preview_header():
     """Generates a base64 PNG preview of the filled header page."""
     req_data = request.get_json() or {}
-    item_data = req_data.get("item", {})
-    student = req_data.get("student", {})
-    is_assgn = item_data.get("is_assignment", False)
-    label = str(item_data.get("label", item_data.get("num", "1")))
-    exp_label = f"Assign - {label}" if is_assgn else f"Exp - {label}"
+    item_data = req_data.get("item") or req_data
+    student = req_data.get("student") or req_data
+    is_assgn = bool(item_data.get("is_assignment", False))
+    label = str(item_data.get("label") or item_data.get("num") or item_data.get("experiment_number") or "1")
 
     data = {
         "sem": student.get("sem", ""),
@@ -535,14 +534,14 @@ def preview_header():
         "sub_date": item_data.get("sub_date") or student.get("sub_date", ""),
     }
     formatting = {
-        "text_color": student.get("text_color", "blue"),
-        "strikethrough_enabled": student.get("strikethrough_enabled", True),
+        "text_color": student.get("text_color") or req_data.get("text_color", "blue"),
+        "strikethrough_enabled": student.get("strikethrough_enabled", req_data.get("strikethrough_enabled", True)),
         "font_size": 11,
         "font_name": "helv",
     }
     try:
         preview_data_url = render_header_preview_png(TEMPLATE_HEADER, data, formatting, dpi=150)
-        return jsonify({"success": True, "image_data": preview_data_url})
+        return jsonify({"success": True, "image_data": preview_data_url, "image": preview_data_url})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

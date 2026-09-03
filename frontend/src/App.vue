@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Eye,
   Layers,
+  X,
 } from 'lucide-vue-next';
 
 const store = useLabStore();
@@ -35,18 +36,21 @@ async function handleCompile() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#09090b] text-[#fafafa] flex flex-col font-sans selection:bg-zinc-800 selection:text-white">
+  <div class="min-h-screen bg-background text-zinc-100 flex flex-col font-sans selection:bg-zinc-800 selection:text-white">
     <!-- 1. Top Navbar -->
-    <header class="bg-[#141417]/90 backdrop-blur-md border-b border-[#27272a] sticky top-0 z-30">
+    <header class="bg-surface/90 backdrop-blur-md border-b border-border sticky top-0 z-30">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
         <!-- Logo & Branding -->
         <div class="flex items-center gap-2.5">
           <div class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></div>
           <div>
-            <h1 class="text-sm sm:text-base font-bold text-white tracking-tight leading-none">
-              LabStudio
-            </h1>
-            <p class="text-[10px] text-zinc-400 mt-0.5 hidden sm:block">
+            <div class="flex items-center gap-1.5">
+              <h1 class="text-sm sm:text-base font-bold text-white tracking-tight leading-none">
+                LabStudio
+              </h1>
+              <span class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-blue-950/70 text-blue-400 border border-blue-800/60 leading-none">v3.0</span>
+            </div>
+            <p class="text-[10px] text-zinc-400 mt-1 hidden sm:block">
               Institutional Lab Report Compiler
             </p>
           </div>
@@ -56,7 +60,7 @@ async function handleCompile() {
         <div class="flex items-center gap-2">
           <span
             v-if="store.student.subject"
-            class="text-xs font-mono text-zinc-300 bg-[#1c1c21] border border-[#27272a] px-2.5 py-1 rounded-lg hidden sm:inline-block"
+            class="text-xs font-mono text-zinc-300 bg-surface-hover border border-border px-2.5 py-1 rounded-lg hidden sm:inline-block"
           >
             {{ store.student.subject }}
           </span>
@@ -65,10 +69,10 @@ async function handleCompile() {
           <button
             type="button"
             @click="isMobilePreviewOpen = !isMobilePreviewOpen"
-            class="lg:hidden inline-flex items-center gap-1.5 text-xs text-zinc-300 bg-[#1c1c21] border border-[#27272a] hover:border-zinc-400 px-2.5 py-1.5 rounded-lg"
+            class="lg:hidden inline-flex items-center gap-1.5 text-xs text-zinc-300 bg-surface-hover border border-border hover:border-zinc-400 px-2.5 py-1.5 rounded-lg transition"
           >
             <Eye class="w-3.5 h-3.5 text-blue-400" />
-            <span>{{ isMobilePreviewOpen ? 'Hide Preview' : 'View Preview' }}</span>
+            <span>{{ isMobilePreviewOpen ? 'Close Preview' : 'Live Preview' }}</span>
           </button>
         </div>
       </div>
@@ -93,17 +97,34 @@ async function handleCompile() {
         </div>
       </div>
 
-      <!-- Mobile Slide-Up Preview Drawer (visible when isMobilePreviewOpen on mobile) -->
-      <div
-        v-if="isMobilePreviewOpen"
-        class="lg:hidden fixed inset-x-0 bottom-24 z-40 p-4 max-w-md mx-auto"
-      >
-        <LivePreview />
+      <!-- Mobile Slide-Up Preview Drawer with Backdrop -->
+      <div v-if="isMobilePreviewOpen" class="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
+        <!-- Backdrop Scrim -->
+        <div
+          class="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"
+          @click="isMobilePreviewOpen = false"
+        ></div>
+
+        <!-- Sheet Modal Container -->
+        <div class="relative z-10 bg-surface border-t border-border rounded-t-2xl p-4 max-h-[85vh] overflow-y-auto space-y-3 shadow-2xl">
+          <div class="flex items-center justify-between pb-2 border-b border-border">
+            <span class="text-xs font-semibold text-white uppercase tracking-wider">Live Preview</span>
+            <button
+              type="button"
+              @click="isMobilePreviewOpen = false"
+              class="p-1 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition"
+              aria-label="Close preview"
+            >
+              <X class="w-4 h-4" />
+            </button>
+          </div>
+          <LivePreview />
+        </div>
       </div>
     </main>
 
     <!-- 3. Sticky Bottom Compilation Dock -->
-    <aside class="fixed inset-x-0 bottom-0 z-50 bg-[#141417]/95 backdrop-blur-md border-t border-[#27272a] p-3 sm:px-6 shadow-2xl">
+    <aside class="fixed inset-x-0 bottom-0 z-30 bg-surface/95 backdrop-blur-md border-t border-border p-3 sm:px-6 shadow-2xl">
       <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
         <!-- Status Indicator -->
         <div class="flex items-center gap-2 text-xs">
@@ -114,7 +135,7 @@ async function handleCompile() {
           <span :class="store.canCompile ? 'text-zinc-200' : 'text-amber-400 font-medium'">
             {{ store.compileStatusText }}
           </span>
-          <span v-if="store.totalPages > 0" class="text-zinc-500 font-mono hidden sm:inline">
+          <span v-if="store.totalPages > 0" class="text-zinc-400 font-mono hidden sm:inline">
             · {{ store.totalPages }} total pages
           </span>
         </div>
@@ -128,7 +149,7 @@ async function handleCompile() {
               @click="handleCompile"
               :disabled="store.isCompiling || !store.canCompile"
               class="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-xl transition shadow-lg"
-              :class="store.canCompile ? 'bg-white text-black hover:bg-zinc-200 active:scale-[0.98]' : 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-[#27272a]'"
+              :class="store.canCompile ? 'bg-white text-black hover:bg-zinc-200 active:scale-[0.98]' : 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-border'"
             >
               <Loader2 v-if="store.isCompiling" class="w-4 h-4 animate-spin text-black" />
               <Layers v-else class="w-4 h-4 text-black" />
@@ -150,7 +171,7 @@ async function handleCompile() {
             <button
               type="button"
               @click="store.downloadZip"
-              class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl bg-[#1c1c21] hover:bg-zinc-800 border border-[#27272a] text-zinc-300 transition"
+              class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl bg-surface-hover hover:bg-zinc-800 border border-border text-zinc-300 transition"
             >
               <FolderArchive class="w-4 h-4" />
               <span class="hidden sm:inline">Download ZIP</span>
@@ -173,7 +194,7 @@ async function handleCompile() {
     <!-- 4. Floating Toast Notification -->
     <div
       v-if="toastMessage"
-      class="fixed bottom-20 right-6 z-50 bg-[#1c1c21] border border-[#27272a] shadow-2xl px-4 py-2.5 rounded-xl text-xs text-white flex items-center gap-2"
+      class="fixed bottom-20 right-6 z-50 bg-surface-hover border border-border shadow-2xl px-4 py-2.5 rounded-xl text-xs text-white flex items-center gap-2"
     >
       <CheckCircle2 class="w-4 h-4 text-emerald-400 shrink-0" />
       <span>{{ toastMessage }}</span>

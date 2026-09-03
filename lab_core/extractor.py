@@ -100,6 +100,12 @@ def inspect_pdf_info(pdf_path: str, mode: str = 'auto') -> dict:
                     raw_num = fn_match.group(2)
                     info["exp_num"] = normalize_exp_number(raw_num)
                     info["is_assignment"] = True if 'ass' in type_str else False
+                else:
+                    # Match numeric prefixes like '01_MQTT.pdf' or '2-Dijkstra.pdf'
+                    num_prefix = re.match(rf'^(\d+[a-z]?|\b{roman_re}\b)[\s\-_.]', filename, re.IGNORECASE)
+                    if num_prefix:
+                        info["exp_num"] = normalize_exp_number(num_prefix.group(1))
+                        info["is_assignment"] = False
 
             # 3. Method B: Header Title Line Extraction
             header_title = None
@@ -115,13 +121,13 @@ def inspect_pdf_info(pdf_path: str, mode: str = 'auto') -> dict:
                         header_title = found_title
                         break
 
-            # 4. Method A: First Full Stop Method (Aim: ...)
+            # 4. Method A: First Full Stop Method (Aim: ..., Problem Statement: ...)
             aim_first_period = None
             aim_lines = []
             capture = False
 
             for line in lines:
-                m_aim = re.match(r'^(?:Aim|AIM|Title|TITLE|Objective|OBJECTIVE)[\s:]*(.*)$', line, re.IGNORECASE)
+                m_aim = re.match(r'^(?:Aim|AIM|Title|TITLE|Objective|OBJECTIVE|Problem\s+Statement|Statement|Topic)[\s:]*(.*)$', line, re.IGNORECASE)
                 if m_aim:
                     capture = True
                     val = m_aim.group(1).strip()

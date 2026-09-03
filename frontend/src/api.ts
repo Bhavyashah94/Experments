@@ -3,6 +3,11 @@ export interface UploadResponse {
   hash?: string;
   filename?: string;
   pages?: number;
+  aim?: string;
+  exp_num?: string;
+  is_assignment?: boolean;
+  extraction_method?: string;
+  failure_reason?: string;
   extracted?: {
     aim?: string;
     experiment_number?: string;
@@ -14,6 +19,7 @@ export interface UploadResponse {
 
 export interface PreviewResponse {
   success: boolean;
+  image_data?: string;
   image?: string;
   error?: string;
 }

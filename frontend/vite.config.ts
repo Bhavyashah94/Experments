@@ -2,7 +2,7 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import tailwindcss from '@tailwindcss/vite';
-import path from 'path';
+import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
   plugins: [
@@ -11,7 +11,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
   server: {
@@ -35,14 +35,11 @@ export default defineConfig({
       output: {
         manualChunks: (id) => {
           if (id.includes('node_modules')) {
-            if (id.includes('pdfjs-dist')) {
-              return 'pdfjs-vendor';
+            if (id.includes('vue') || id.includes('pinia') || id.includes('@vueuse')) {
+              return 'vue-vendor';
             }
             if (id.includes('lucide-vue-next')) {
               return 'icons-vendor';
-            }
-            if (id.includes('pinia') || id.includes('@vueuse')) {
-              return 'framework-vendor';
             }
             return 'vendor';
           }

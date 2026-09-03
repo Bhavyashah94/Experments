@@ -26,15 +26,15 @@ function handleCreateProfile() {
 </script>
 
 <template>
-  <div class="bg-[#141417] border border-[#27272a] rounded-xl p-4 sm:p-5 space-y-4">
+  <div class="bg-surface border border-border rounded-xl p-4 sm:p-5 space-y-4 shadow-sm">
     <!-- Top Row: Subject Profile Selector -->
-    <div class="flex items-center justify-between gap-2 border-b border-[#27272a] pb-3">
+    <div class="flex items-center justify-between gap-2 border-b border-border pb-3">
       <div class="flex items-center gap-2">
         <span class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Subject Profile:</span>
         <select
           :value="store.activeProfileId"
           @change="(e) => store.switchProfile((e.target as HTMLSelectElement).value)"
-          class="bg-[#1c1c21] border border-[#27272a] rounded-lg px-2.5 py-1 text-xs text-white font-medium outline-none focus:border-zinc-400 cursor-pointer"
+          class="bg-surface-hover border border-border rounded-lg px-2.5 py-1 text-xs text-white font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 cursor-pointer transition"
         >
           <option v-for="p in store.profiles" :key="p.id" :value="p.id">
             {{ p.name }}
@@ -45,7 +45,7 @@ function handleCreateProfile() {
       <button
         type="button"
         @click="showNewProfile = !showNewProfile"
-        class="inline-flex items-center gap-1 text-xs text-zinc-300 hover:text-white bg-[#1c1c21] border border-[#27272a] hover:border-zinc-400 px-2 py-1 rounded-lg transition"
+        class="inline-flex items-center gap-1 text-xs text-zinc-300 hover:text-white bg-surface-hover border border-border hover:border-zinc-500 px-2 py-1 rounded-lg transition"
       >
         <Plus class="w-3.5 h-3.5" />
         <span>New</span>
@@ -53,18 +53,18 @@ function handleCreateProfile() {
     </div>
 
     <!-- Add Profile Inline Form -->
-    <div v-if="showNewProfile" class="flex items-center gap-2 bg-[#1c1c21] p-2.5 rounded-lg border border-[#27272a]">
+    <div v-if="showNewProfile" class="flex items-center gap-2 bg-surface-hover p-2.5 rounded-lg border border-border">
       <input
         type="text"
         v-model="newProfileName"
         placeholder="Profile name (e.g. IoT Lab, Cloud Lab)"
-        class="flex-1 bg-[#141417] border border-[#27272a] text-xs text-white rounded px-2.5 py-1 outline-none focus:border-zinc-400"
+        class="flex-1 bg-surface border border-border text-xs text-white rounded px-2.5 py-1 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
         @keyup.enter="handleCreateProfile"
       />
       <button
         type="button"
         @click="handleCreateProfile"
-        class="text-xs bg-white text-black font-semibold px-2.5 py-1 rounded hover:bg-zinc-200"
+        class="text-xs bg-white text-black font-semibold px-2.5 py-1 rounded hover:bg-zinc-200 transition"
       >
         Save
       </button>
@@ -105,8 +105,8 @@ function handleCreateProfile() {
           type="text"
           v-model="store.student.name"
           placeholder="e.g. Bhavya Shah"
-          class="w-full bg-[#1c1c21] border border-[#27272a] text-xs text-white rounded-lg px-3 py-2 outline-none focus:border-zinc-400 transition"
-          :class="!store.student.name.trim() ? 'border-amber-900/40' : ''"
+          class="w-full bg-surface-hover border text-xs text-white rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 transition"
+          :class="!store.student.name.trim() ? 'border-amber-700/60' : 'border-border'"
         />
       </div>
 
@@ -118,8 +118,8 @@ function handleCreateProfile() {
           type="text"
           v-model="store.student.rollNo"
           placeholder="e.g. 34"
-          class="w-full bg-[#1c1c21] border border-[#27272a] text-xs text-white rounded-lg px-3 py-2 outline-none focus:border-zinc-400 transition"
-          :class="!store.student.rollNo.trim() ? 'border-amber-900/40' : ''"
+          class="w-full bg-surface-hover border text-xs text-white rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 transition"
+          :class="!store.student.rollNo.trim() ? 'border-amber-700/60' : 'border-border'"
         />
       </div>
 
@@ -131,8 +131,8 @@ function handleCreateProfile() {
           type="text"
           v-model="store.student.batch"
           placeholder="e.g. I3"
-          class="w-full bg-[#1c1c21] border border-[#27272a] text-xs text-white rounded-lg px-3 py-2 outline-none focus:border-zinc-400 transition"
-          :class="!store.student.batch.trim() ? 'border-amber-900/40' : ''"
+          class="w-full bg-surface-hover border text-xs text-white rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 transition"
+          :class="!store.student.batch.trim() ? 'border-amber-700/60' : 'border-border'"
         />
       </div>
 
@@ -144,8 +144,8 @@ function handleCreateProfile() {
           type="text"
           v-model="store.student.className"
           placeholder="e.g. BE IT"
-          class="w-full bg-[#1c1c21] border border-[#27272a] text-xs text-white rounded-lg px-3 py-2 outline-none focus:border-zinc-400 transition"
-          :class="!store.student.className.trim() ? 'border-amber-900/40' : ''"
+          class="w-full bg-surface-hover border text-xs text-white rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 transition"
+          :class="!store.student.className.trim() ? 'border-amber-700/60' : 'border-border'"
         />
       </div>
 
@@ -157,8 +157,8 @@ function handleCreateProfile() {
           type="text"
           v-model="store.student.sem"
           placeholder="e.g. VII"
-          class="w-full bg-[#1c1c21] border border-[#27272a] text-xs text-white rounded-lg px-3 py-2 outline-none focus:border-zinc-400 transition"
-          :class="!store.student.sem.trim() ? 'border-amber-900/40' : ''"
+          class="w-full bg-surface-hover border text-xs text-white rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 transition"
+          :class="!store.student.sem.trim() ? 'border-amber-700/60' : 'border-border'"
         />
       </div>
 
@@ -170,14 +170,14 @@ function handleCreateProfile() {
           type="text"
           v-model="store.student.subject"
           placeholder="e.g. Internet of Things"
-          class="w-full bg-[#1c1c21] border border-[#27272a] text-xs text-white rounded-lg px-3 py-2 outline-none focus:border-zinc-400 transition"
-          :class="!store.student.subject.trim() ? 'border-amber-900/40' : ''"
+          class="w-full bg-surface-hover border text-xs text-white rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 transition"
+          :class="!store.student.subject.trim() ? 'border-amber-700/60' : 'border-border'"
         />
       </div>
     </div>
 
     <!-- Ink Color Selection -->
-    <div class="border-t border-[#27272a] pt-3 space-y-2">
+    <div class="border-t border-border pt-3 space-y-2">
       <div class="flex items-center justify-between">
         <span class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
           <Palette class="w-3.5 h-3.5" />
@@ -201,7 +201,7 @@ function handleCreateProfile() {
           type="button"
           @click="store.student.textColor = c.hex"
           class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition"
-          :class="store.student.textColor === c.hex ? 'border-white bg-zinc-800 text-white font-medium' : 'border-[#27272a] text-zinc-400 hover:border-zinc-500'"
+          :class="store.student.textColor === c.hex ? 'border-white bg-zinc-800 text-white font-medium' : 'border-border text-zinc-400 hover:border-zinc-500'"
         >
           <span class="w-2.5 h-2.5 rounded-full" :style="{ backgroundColor: c.hex }"></span>
           <span>{{ c.name }}</span>
@@ -210,21 +210,21 @@ function handleCreateProfile() {
     </div>
 
     <!-- Global Schedule Dates (Strictly Optional) -->
-    <div class="border-t border-[#27272a] pt-3 space-y-2">
+    <div class="border-t border-border pt-3 space-y-2">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-1.5">
           <span class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
             <Calendar class="w-3.5 h-3.5" />
             <span>Date Schedule</span>
           </span>
-          <span class="text-[10px] text-zinc-500 lowercase">(optional)</span>
+          <span class="text-[10px] text-zinc-400 lowercase font-medium">(optional)</span>
         </div>
 
         <div class="flex items-center gap-1.5">
           <button
             type="button"
             @click="store.applyGlobalDates"
-            class="inline-flex items-center gap-1 text-[11px] text-zinc-300 hover:text-white bg-[#1c1c21] border border-[#27272a] hover:border-zinc-400 px-2 py-0.5 rounded transition"
+            class="inline-flex items-center gap-1 text-[11px] text-zinc-300 hover:text-white bg-surface-hover border border-border hover:border-zinc-400 px-2 py-0.5 rounded transition"
             title="Apply these dates to all experiments"
           >
             <RefreshCw class="w-3 h-3" />
@@ -243,7 +243,7 @@ function handleCreateProfile() {
       </div>
 
       <div class="grid grid-cols-2 gap-2">
-        <div class="flex items-center gap-1.5 bg-[#1c1c21] border border-[#27272a] px-2.5 py-1.5 rounded-lg">
+        <div class="flex items-center gap-1.5 bg-surface-hover border border-border px-2.5 py-1.5 rounded-lg focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/50 transition">
           <span class="text-[10px] text-zinc-400 uppercase font-medium">Perf:</span>
           <input
             type="text"
@@ -252,7 +252,7 @@ function handleCreateProfile() {
             class="w-full bg-transparent text-xs font-mono text-white outline-none"
           />
         </div>
-        <div class="flex items-center gap-1.5 bg-[#1c1c21] border border-[#27272a] px-2.5 py-1.5 rounded-lg">
+        <div class="flex items-center gap-1.5 bg-surface-hover border border-border px-2.5 py-1.5 rounded-lg focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/50 transition">
           <span class="text-[10px] text-zinc-400 uppercase font-medium">Sub:</span>
           <input
             type="text"
@@ -265,21 +265,21 @@ function handleCreateProfile() {
     </div>
 
     <!-- Document Formatting Toggles -->
-    <div class="border-t border-[#27272a] pt-3 grid grid-cols-2 gap-2 text-xs">
-      <label class="flex items-center gap-2 cursor-pointer select-none bg-[#1c1c21]/50 hover:bg-[#1c1c21] border border-[#27272a] rounded-lg p-2 transition">
+    <div class="border-t border-border pt-3 grid grid-cols-2 gap-2 text-xs">
+      <label class="flex items-center gap-2 cursor-pointer select-none bg-surface-hover/60 hover:bg-surface-hover border border-border rounded-lg p-2 transition">
         <input
           type="checkbox"
           v-model="store.student.strikethrough"
-          class="rounded bg-[#1c1c21] border-[#27272a] text-white cursor-pointer"
+          class="rounded bg-surface border-border text-blue-500 cursor-pointer"
         />
         <span class="text-zinc-300 text-[11px]">Strikethrough Line</span>
       </label>
 
-      <label class="flex items-center gap-2 cursor-pointer select-none bg-[#1c1c21]/50 hover:bg-[#1c1c21] border border-[#27272a] rounded-lg p-2 transition">
+      <label class="flex items-center gap-2 cursor-pointer select-none bg-surface-hover/60 hover:bg-surface-hover border border-border rounded-lg p-2 transition">
         <input
           type="checkbox"
           v-model="store.student.includeToc"
-          class="rounded bg-[#1c1c21] border-[#27272a] text-white cursor-pointer"
+          class="rounded bg-surface border-border text-blue-500 cursor-pointer"
         />
         <span class="text-zinc-300 text-[11px]">Generate Index Sheet</span>
       </label>

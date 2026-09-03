@@ -1,3 +1,8 @@
 lab.bhavyashah.me, labstudio.bhavyashah.me {
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
     reverse_proxy header-app:7860
 }

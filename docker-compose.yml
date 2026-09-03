@@ -5,9 +5,10 @@ services:
       dockerfile: Dockerfile
     container_name: experiment_header_app
     restart: unless-stopped
+    mem_limit: 750m
     environment:
       - PORT=7860
-      - ANALYTICS_ADMIN_PASSWORD=${ANALYTICS_ADMIN_PASSWORD:-Raster0912@}
+      - ANALYTICS_ADMIN_PASSWORD=${ANALYTICS_ADMIN_PASSWORD}
       - MAX_STORAGE_GB=15
     volumes:
       - ./output:/app/output

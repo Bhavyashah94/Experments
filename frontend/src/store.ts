@@ -1,10 +1,12 @@
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
+import { useDebounceFn } from '@vueuse/core';
 import type { StudentInfo, DocumentItem, SubjectProfile } from './types';
 import { Api } from './api';
 
 const STORAGE_STUDENT = 'labstudio_student_v3';
 const STORAGE_PROFILES = 'labstudio_profiles_v3';
+const STORAGE_ACTIVE_PROFILE = 'labstudio_active_profile_v3';
 const STORAGE_DOCS = 'labstudio_docs_v3';
 
 function load<T>(key: string, fallback: T): T {
@@ -22,8 +24,12 @@ function save<T>(key: string, data: T) {
   } catch {}
 }
 
+function sanitizeFilename(name: string): string {
+  return name.replace(/[/\\?%*:|"<>]/g, '_').trim();
+}
+
 export const useLabStore = defineStore('lab', () => {
-  // ── 1. Student Identity (6 Required Fields + Styling + Optional Dates) ──
+  // ── 1. Student Identity (6 Compulsory Fields + Styling + Optional Dates) ──
   const student = ref<StudentInfo>(
     load<StudentInfo>(STORAGE_STUDENT, {
       name: '',
@@ -53,7 +59,7 @@ export const useLabStore = defineStore('lab', () => {
       },
     ])
   );
-  const activeProfileId = ref<string>('default');
+  const activeProfileId = ref<string>(load<string>(STORAGE_ACTIVE_PROFILE, 'default'));
 
   // ── 3. Document Queue ──────────────────────────────────────────────────
   const documents = ref<DocumentItem[]>(
@@ -87,16 +93,41 @@ export const useLabStore = defineStore('lab', () => {
   const combinedPdfPath = ref<string | null>(null);
   const zipPath = ref<string | null>(null);
 
-  // ── Auto-Persistence ───────────────────────────────────────────────────
-  watch(student, (val) => save(STORAGE_STUDENT, val), { deep: true });
-  watch(profiles, (val) => save(STORAGE_PROFILES, val), { deep: true });
+  // ── Debounced Auto-Persistence (Avoids Blocking Keystroke Serialization) ─
+  const debouncedSaveStudent = useDebounceFn((val) => save(STORAGE_STUDENT, val), 250);
+  const debouncedSaveProfiles = useDebounceFn((val) => save(STORAGE_PROFILES, val), 250);
+  const debouncedSaveDocs = useDebounceFn((val) => save(STORAGE_DOCS, val), 250);
+
+  watch(student, (val) => debouncedSaveStudent(val), { deep: true });
+  watch(profiles, (val) => debouncedSaveProfiles(val), { deep: true });
+  watch(activeProfileId, (val) => save(STORAGE_ACTIVE_PROFILE, val));
   watch(
     documents,
     (val) => {
-      save(STORAGE_DOCS, val);
+      debouncedSaveDocs(val);
       isCompiled.value = false;
     },
     { deep: true }
+  );
+
+  // ── Bidirectional Profile Synchronization ──────────────────────────────
+  // Keep the active profile in sync when the student edits subject/color/toggles
+  watch(
+    [
+      () => student.value.subject,
+      () => student.value.textColor,
+      () => student.value.strikethrough,
+      () => student.value.includeToc,
+    ],
+    ([subject, textColor, strikethrough, includeToc]) => {
+      const active = profiles.value.find((p) => p.id === activeProfileId.value);
+      if (active) {
+        active.subject = subject;
+        active.textColor = textColor;
+        active.strikethrough = strikethrough;
+        active.includeToc = includeToc;
+      }
+    }
   );
 
   // ── 5. Validation Rules (Strict Compulsory vs Strictly Optional Dates) ──
@@ -115,6 +146,10 @@ export const useLabStore = defineStore('lab', () => {
 
   const missingDocTitles = computed<number>(() => {
     return documents.value.filter((d) => !d.title || !d.title.trim()).length;
+  });
+
+  const missingDocAttachments = computed<number>(() => {
+    return documents.value.filter((d) => !d.hash).length;
   });
 
   const totalPages = computed(() => {
@@ -142,7 +177,11 @@ export const useLabStore = defineStore('lab', () => {
     if (missingDocTitles.value > 0) {
       return `Enter title for all ${documents.value.length} experiments`;
     }
-    return `Compile Lab Report (${documents.value.length} ${documents.value.length === 1 ? 'doc' : 'docs'})`;
+    const docWord = documents.value.length === 1 ? 'doc' : 'docs';
+    if (missingDocAttachments.value > 0) {
+      return `Compile Lab Report (${documents.value.length} ${docWord}, ${missingDocAttachments.value} cover-only)`;
+    }
+    return `Compile Lab Report (${documents.value.length} ${docWord})`;
   });
 
   // ── 6. Document Actions ────────────────────────────────────────────────
@@ -175,8 +214,8 @@ export const useLabStore = defineStore('lab', () => {
           num: '1',
           title: '',
           isAssignment: false,
-          perfDate: '',
-          subDate: '',
+          perfDate: student.value.globalPerfDate || '',
+          subDate: student.value.globalSubDate || '',
           hash: null,
           filename: null,
           pages: 0,
@@ -197,10 +236,14 @@ export const useLabStore = defineStore('lab', () => {
     }
   }
 
-  function renumber() {
-    documents.value.forEach((doc, i) => {
-      doc.num = String(i + 1);
-    });
+  // Renumber only if all documents currently use standard integer numbering
+  function renumber(force = false) {
+    const allNumeric = documents.value.every((d) => /^\d+$/.test(d.num.trim()));
+    if (force || allNumeric) {
+      documents.value.forEach((doc, i) => {
+        doc.num = String(i + 1);
+      });
+    }
   }
 
   function reorder(fromIndex: number, toIndex: number) {
@@ -211,23 +254,28 @@ export const useLabStore = defineStore('lab', () => {
     renumber();
   }
 
-  // ── Date Automation (+7 Days Weekly Ripple) ────────────────────────────
-  function applyGlobalDates() {
-    documents.value.forEach((d) => {
-      if (student.value.globalPerfDate) d.perfDate = student.value.globalPerfDate;
-      if (student.value.globalSubDate) d.subDate = student.value.globalSubDate;
-    });
-  }
-
+  // ── Robust Date Parsing (Handles ISO YYYY-MM-DD and DD/MM/YYYY) ──────
   function parseDate(str: string): Date | null {
     if (!str) return null;
-    const parts = str.split(/[-/.]/);
+    const parts = str.trim().split(/[-/.]/);
     if (parts.length === 3) {
-      const d = parseInt(parts[0], 10);
-      const m = parseInt(parts[1], 10) - 1;
-      const y = parseInt(parts[2], 10);
-      const date = new Date(y < 100 ? y + 2000 : y, m, d);
-      if (!isNaN(date.getTime())) return date;
+      let d: number, m: number, y: number;
+      // ISO Format: YYYY-MM-DD
+      if (parts[0].length === 4) {
+        y = parseInt(parts[0], 10);
+        m = parseInt(parts[1], 10) - 1;
+        d = parseInt(parts[2], 10);
+      } else {
+        // Standard Format: DD/MM/YYYY
+        d = parseInt(parts[0], 10);
+        m = parseInt(parts[1], 10) - 1;
+        y = parseInt(parts[2], 10);
+        if (y < 100) y += 2000;
+      }
+      if (!isNaN(d) && !isNaN(m) && !isNaN(y) && m >= 0 && m <= 11 && d >= 1 && d <= 31) {
+        const date = new Date(y, m, d);
+        if (!isNaN(date.getTime()) && date.getDate() === d) return date;
+      }
     }
     return null;
   }
@@ -237,6 +285,14 @@ export const useLabStore = defineStore('lab', () => {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
     return `${day}/${month}/${year}`;
+  }
+
+  // ── Date Automation (+7 Days Weekly Ripple) ────────────────────────────
+  function applyGlobalDates() {
+    documents.value.forEach((d) => {
+      if (student.value.globalPerfDate) d.perfDate = student.value.globalPerfDate;
+      if (student.value.globalSubDate) d.subDate = student.value.globalSubDate;
+    });
   }
 
   function applyWeeklyDates() {
@@ -272,16 +328,19 @@ export const useLabStore = defineStore('lab', () => {
         doc.pages = res.pages || 0;
         doc.status = 'ready';
 
-        if (res.extracted) {
-          if (res.extracted.aim && !doc.title) {
-            doc.title = res.extracted.aim;
-          }
-          if (res.extracted.experiment_number) {
-            doc.num = res.extracted.experiment_number;
-          }
-          if (res.extracted.is_assignment !== undefined) {
-            doc.isAssignment = res.extracted.is_assignment;
-          }
+        // Map auto-extracted metadata (supports both root and nested schemas)
+        const aim = res.aim || res.extracted?.aim;
+        const expNum = res.exp_num || res.extracted?.experiment_number;
+        const isAssign = res.is_assignment !== undefined ? res.is_assignment : res.extracted?.is_assignment;
+
+        if (aim && !doc.title) {
+          doc.title = aim;
+        }
+        if (expNum) {
+          doc.num = String(expNum);
+        }
+        if (isAssign !== undefined && isAssign !== null) {
+          doc.isAssignment = Boolean(isAssign);
         }
       } else {
         doc.status = 'error';
@@ -298,8 +357,8 @@ export const useLabStore = defineStore('lab', () => {
     if (fileList.length === 0) return;
 
     for (const file of fileList) {
-      // Find existing empty row or add a new one
-      let target = documents.value.find((d) => !d.hash && !d.title);
+      // Find existing row that lacks an attached PDF, or add a new one
+      let target = documents.value.find((d) => !d.hash);
       if (!target) {
         target = addDocument();
       }
@@ -391,7 +450,9 @@ export const useLabStore = defineStore('lab', () => {
     const url = Api.getDownloadUrl(combinedPdfPath.value);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${student.value.rollNo || 'Report'}_${student.value.subject || 'Combined'}.pdf`;
+    const safeRoll = sanitizeFilename(student.value.rollNo) || 'Report';
+    const safeSubject = sanitizeFilename(student.value.subject) || 'Combined';
+    a.download = `${safeRoll}_${safeSubject}.pdf`;
     a.click();
   }
 
@@ -400,7 +461,9 @@ export const useLabStore = defineStore('lab', () => {
     const url = Api.getDownloadUrl(zipPath.value);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${student.value.rollNo || 'Report'}_${student.value.subject || 'Package'}.zip`;
+    const safeRoll = sanitizeFilename(student.value.rollNo) || 'Report';
+    const safeSubject = sanitizeFilename(student.value.subject) || 'Package';
+    a.download = `${safeRoll}_${safeSubject}_Package.zip`;
     a.click();
   }
 
@@ -418,6 +481,7 @@ export const useLabStore = defineStore('lab', () => {
     missingStudentFields,
     isStudentComplete,
     missingDocTitles,
+    missingDocAttachments,
     totalPages,
     canCompile,
     compileStatusText,
@@ -425,6 +489,8 @@ export const useLabStore = defineStore('lab', () => {
     removeDocument,
     renumber,
     reorder,
+    parseDate,
+    formatDate,
     applyGlobalDates,
     applyWeeklyDates,
     uploadFile,

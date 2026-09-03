@@ -1,7 +1,7 @@
 {
   "name": "lab-header-studio-ui",
   "private": true,
-  "version": "2.0.0",
+  "version": "3.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,26 +11,16 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@lucide/vue": "^1.40.0",
-    "@tailwindcss/vite": "^4.3.3",
     "@vueuse/core": "^10.11.1",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
     "lucide-vue-next": "^0.378.0",
-    "pdfjs-dist": "^4.2.67",
     "pinia": "^2.1.7",
-    "reka-ui": "^2.10.4",
-    "sortablejs": "^1.15.2",
-    "tailwind-merge": "^2.3.0",
-    "tailwindcss-animate": "^1.0.7",
     "vue": "^3.4.27"
   },
   "devDependencies": {
-    "@types/sortablejs": "^1.15.8",
+    "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-vue": "^5.0.4",
     "@vue/test-utils": "^2.4.5",
     "happy-dom": "^14.12.0",
-    "playwright": "^1.62.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.4.5",
     "vite": "^5.2.11",
