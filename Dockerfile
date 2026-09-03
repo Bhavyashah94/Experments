@@ -1,5 +1,5 @@
 # ── Stage 1: Build Modern Vue 3 Frontend ──────────────────────────────────
-FROM node:20-alpine AS frontend-builder
+FROM node:26-alpine AS frontend-builder
 WORKDIR /build
 
 COPY frontend/package*.json ./
