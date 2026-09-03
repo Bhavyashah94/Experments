@@ -25,6 +25,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('popstate', handlePopState);
 });
+import { Button } from '@/components/ui/button';
 import {
   HelpCircle,
   Loader2,
@@ -103,15 +104,17 @@ onMounted(async () => {
 
         <!-- Header Actions: Guide Only -->
         <div class="flex items-center gap-2 shrink-0">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             @click="isGuideOpen = true"
-            class="text-xs text-muted hover:text-white transition px-3 py-1.5 rounded-lg hover:bg-zinc-800 inline-flex items-center gap-1.5 border border-transparent hover:border-border"
+            class="text-xs text-muted hover:text-white transition px-3 py-1.5 h-8 gap-1.5"
             title="Formatting & Auto-Aim guide"
           >
             <HelpCircle class="w-3.5 h-3.5" />
             <span>Guide</span>
-          </button>
+          </Button>
         </div>
       </div>
     </nav>
@@ -166,16 +169,18 @@ onMounted(async () => {
             </div>
 
             <div class="flex items-center gap-2.5">
-              <button
+              <Button
                 type="button"
+                variant="default"
+                size="default"
                 @click="handleCompile(false)"
                 :disabled="documentStore.isGenerating || documentStore.documents.length === 0"
-                class="text-xs font-semibold bg-white hover:bg-zinc-200 text-black px-5 py-2 rounded-lg transition shadow-md inline-flex items-center gap-2 disabled:opacity-50"
+                class="text-xs font-semibold gap-2 shadow-md"
               >
                 <Loader2 v-if="documentStore.isGenerating" class="w-4 h-4 animate-spin" />
                 <Layers v-else class="w-4 h-4" />
                 <span>{{ documentStore.isGenerating ? 'Compiling PDF Package...' : 'Compile Reports' }}</span>
-              </button>
+              </Button>
             </div>
           </section>
 
@@ -190,33 +195,39 @@ onMounted(async () => {
             </div>
 
             <div class="flex flex-wrap items-center gap-2.5">
-              <button
+              <Button
                 type="button"
+                variant="default"
+                size="sm"
                 @click="documentStore.downloadCombinedPdf()"
-                class="text-xs font-semibold bg-white hover:bg-zinc-200 text-black px-4 py-2 rounded-lg transition shadow-md inline-flex items-center gap-1.5"
+                class="text-xs font-semibold shadow-md gap-1.5"
               >
                 <FileText class="w-4 h-4" />
                 <span>Download Combined PDF</span>
-              </button>
+              </Button>
 
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 @click="documentStore.downloadZipPackage()"
-                class="text-xs font-medium bg-inputBg border border-border hover:border-zinc-400 text-zinc-200 px-3.5 py-2 rounded-lg transition inline-flex items-center gap-1.5"
+                class="text-xs font-medium gap-1.5 border-border hover:border-zinc-400 bg-inputBg"
               >
                 <FolderArchive class="w-4 h-4" />
                 <span>Download ZIP</span>
-              </button>
+              </Button>
 
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 @click="handleCompile(false)"
                 :disabled="documentStore.isGenerating"
-                class="text-xs text-zinc-400 hover:text-white px-2 py-1.5 rounded transition"
+                class="text-xs text-zinc-400 hover:text-white h-8"
                 title="Re-compile report package"
               >
                 <span>Re-compile</span>
-              </button>
+              </Button>
             </div>
           </section>
         </div>

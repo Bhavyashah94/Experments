@@ -7,6 +7,17 @@ import type {
   GenerationEventItem,
 } from '@/types/analytics';
 import type { ApiHealthResponse } from '@/types/api';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Activity,
   Users,
@@ -243,71 +254,81 @@ onMounted(() => {
     <!-- Top Minimal Navigation Bar -->
     <header class="border-b border-border bg-surface/90 backdrop-blur sticky top-0 z-40 px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           @click="navigateToStudio"
-          class="text-xs text-muted hover:text-white inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border hover:border-zinc-500 transition"
+          class="text-xs text-muted hover:text-white inline-flex items-center gap-1.5 px-2.5 py-1.5 h-8 border-border hover:border-zinc-500"
         >
           <ArrowLeft class="w-3.5 h-3.5" />
           <span>Back to Studio</span>
-        </button>
+        </Button>
 
         <div class="h-4 w-px bg-border"></div>
 
         <div class="flex items-center gap-2">
           <Activity class="w-4 h-4 text-zinc-300" />
           <h1 class="text-sm font-semibold text-white tracking-wide">Usage Analytics</h1>
-          <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+          <Badge variant="secondary" class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border-zinc-700">
             Internal
-          </span>
+          </Badge>
         </div>
       </div>
 
       <div class="flex items-center gap-2.5">
         <!-- Export Buttons (When Authenticated) -->
         <template v-if="isAuthenticated">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             @click="handleDownloadExport('csv')"
             :disabled="isExporting"
-            class="text-xs bg-inputBg hover:bg-zinc-800 text-zinc-300 hover:text-white border border-border px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5 disabled:opacity-50"
+            class="text-xs bg-inputBg hover:bg-zinc-800 text-zinc-300 hover:text-white border-border h-8 gap-1.5"
             title="Download full analytics as CSV spreadsheet"
           >
             <Download class="w-3.5 h-3.5" />
             <span>Export CSV</span>
-          </button>
+          </Button>
 
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             @click="handleDownloadExport('json')"
             :disabled="isExporting"
-            class="text-xs bg-inputBg hover:bg-zinc-800 text-zinc-300 hover:text-white border border-border px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5 disabled:opacity-50 hidden sm:inline-flex"
+            class="text-xs bg-inputBg hover:bg-zinc-800 text-zinc-300 hover:text-white border-border h-8 gap-1.5 hidden sm:inline-flex"
             title="Download full raw analytics as JSON"
           >
             <Download class="w-3.5 h-3.5" />
             <span>Export JSON</span>
-          </button>
+          </Button>
         </template>
 
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           @click="toggleAutoRefresh"
-          class="text-xs px-2.5 py-1.5 rounded-lg border transition inline-flex items-center gap-1.5"
+          class="text-xs h-8 gap-1.5 transition"
           :class="autoRefresh ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300' : 'bg-inputBg border-border text-muted hover:text-white'"
         >
           <span class="w-1.5 h-1.5 rounded-full" :class="autoRefresh ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'"></span>
           <span>{{ autoRefresh ? 'Live (15s)' : 'Live Off' }}</span>
-        </button>
+        </Button>
 
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           @click="handleRefresh"
           :disabled="isLoading"
-          class="text-xs bg-inputBg hover:bg-zinc-800 text-zinc-300 hover:text-white border border-border px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5 disabled:opacity-50"
+          class="text-xs bg-inputBg hover:bg-zinc-800 text-zinc-300 hover:text-white border-border h-8 gap-1.5"
         >
           <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': isLoading }" />
           <span>Refresh</span>
-        </button>
+        </Button>
       </div>
     </header>
 
@@ -319,7 +340,7 @@ onMounted(() => {
           <Lock class="w-6 h-6" />
         </div>
         <div>
-          <h2 class="text-base font-semibold text-white">Admin Authentication</h2>
+          <h2 class="text-base font-bold text-white">Admin Authentication</h2>
           <p class="text-xs text-muted mt-1">This analytics dashboard is protected by an admin password.</p>
         </div>
 
@@ -328,44 +349,47 @@ onMounted(() => {
             v-model="adminPasswordInput"
             type="password"
             placeholder="Enter admin password..."
-            class="w-full bg-inputBg border border-border rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-zinc-400 font-mono text-center"
+            class="w-full px-3 py-2 bg-inputBg border border-border rounded-xl text-xs text-white placeholder-zinc-500 focus:border-zinc-400 focus:outline-none transition"
             autofocus
           />
-          <p v-if="authError" class="text-xs text-rose-400">{{ authError }}</p>
-
-          <button
+          <div v-if="authError" class="text-xs text-red-400 font-medium text-left">
+            {{ authError }}
+          </div>
+          <Button
             type="submit"
-            :disabled="isLoading"
-            class="w-full bg-white hover:bg-zinc-200 text-black font-semibold text-xs py-2.5 rounded-xl transition shadow-sm disabled:opacity-50"
+            variant="default"
+            size="sm"
+            class="w-full text-xs font-semibold py-2 h-9"
           >
-            {{ isLoading ? 'Verifying...' : 'Unlock Analytics' }}
-          </button>
+            Authenticate
+          </Button>
         </form>
       </div>
 
       <!-- Authenticated Dashboard View -->
       <div v-else class="space-y-6">
-        <!-- Infrastructure Storage & System Telemetry Bar -->
-        <div class="bg-card border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div class="flex items-center gap-3">
-            <div class="p-2.5 rounded-lg bg-inputBg border border-border text-zinc-300">
-              <HardDrive class="w-4 h-4" />
+        <!-- 0. Top Oracle Cloud VM Storage & Health Meter Bar -->
+        <div class="bg-card border border-border rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
+          <div class="flex items-center gap-3.5">
+            <div class="w-9 h-9 rounded-xl bg-inputBg border border-border flex items-center justify-center text-zinc-300 shrink-0">
+              <HardDrive class="w-4 h-4 text-zinc-300" />
             </div>
             <div class="space-y-1">
               <div class="flex items-center gap-2">
                 <span class="text-xs font-semibold text-white">Storage Capacity (Oracle Cloud VM)</span>
-                <span
-                  class="px-2 py-0.5 rounded text-[10px] font-mono font-medium"
+                <Badge
+                  variant="outline"
+                  class="px-2 py-0.5 text-[10px] font-mono font-medium"
                   :class="
                     (serverHealth?.storage?.percent_used ?? 0) > 80
-                      ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                      ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
                       : (serverHealth?.storage?.percent_used ?? 0) > 65
-                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                      : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                   "
                 >
                   {{ (serverHealth?.storage?.percent_used ?? 0) > 80 ? 'Active Rotation' : (serverHealth?.storage?.percent_used ?? 0) > 65 ? 'Approaching Limit' : 'Safe / Retained' }}
-                </span>
+                </Badge>
               </div>
               <div class="text-xs text-muted flex items-center gap-2">
                 <span class="font-mono text-zinc-200">
@@ -395,43 +419,42 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Segmented Tab Navigation Bar -->
-        <div class="flex items-center gap-2 border-b border-border/70 pb-3">
-          <button
-            type="button"
-            @click="activeTab = 'overview'"
-            class="px-3.5 py-2 rounded-xl text-xs font-semibold transition inline-flex items-center gap-2"
-            :class="activeTab === 'overview' ? 'bg-white text-black shadow-sm' : 'text-muted hover:text-white hover:bg-zinc-800/60'"
-          >
-            <BarChart2 class="w-3.5 h-3.5" />
-            <span>Overview & Usage</span>
-          </button>
+        <!-- Segmented Tab Navigation with shadcn Tabs -->
+        <Tabs v-model="activeTab" class="w-full space-y-6">
+          <div class="border-b border-border/70 pb-3">
+            <TabsList class="bg-inputBg/70 p-1 border border-border rounded-xl inline-flex h-auto gap-1">
+              <TabsTrigger
+                value="overview"
+                class="px-3.5 py-2 rounded-lg text-xs font-semibold gap-2 transition data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-muted hover:text-white"
+              >
+                <BarChart2 class="w-3.5 h-3.5" />
+                <span>Overview &amp; Usage</span>
+              </TabsTrigger>
 
-          <button
-            type="button"
-            @click="activeTab = 'discovery'"
-            class="px-3.5 py-2 rounded-xl text-xs font-semibold transition inline-flex items-center gap-2"
-            :class="activeTab === 'discovery' ? 'bg-white text-black shadow-sm' : 'text-muted hover:text-white hover:bg-zinc-800/60'"
-          >
-            <Compass class="w-3.5 h-3.5" />
-            <span>Format Discovery Lab</span>
-            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-indigo-500 text-white font-medium">Lab</span>
-          </button>
+              <TabsTrigger
+                value="discovery"
+                class="px-3.5 py-2 rounded-lg text-xs font-semibold gap-2 transition data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-muted hover:text-white"
+              >
+                <Compass class="w-3.5 h-3.5" />
+                <span>Format Discovery Lab</span>
+                <Badge variant="secondary" class="ml-1 px-1.5 py-0 text-[10px] bg-indigo-500/20 text-indigo-300 border-indigo-500/30">
+                  Lab
+                </Badge>
+              </TabsTrigger>
 
-          <button
-            type="button"
-            @click="activeTab = 'logs'"
-            class="px-3.5 py-2 rounded-xl text-xs font-semibold transition inline-flex items-center gap-2"
-            :class="activeTab === 'logs' ? 'bg-white text-black shadow-sm' : 'text-muted hover:text-white hover:bg-zinc-800/60'"
-          >
-            <FileText class="w-3.5 h-3.5" />
-            <span>Generation Logs</span>
-            <span class="text-[10px] font-mono opacity-70">({{ totalEventsCount }})</span>
-          </button>
-        </div>
+              <TabsTrigger
+                value="logs"
+                class="px-3.5 py-2 rounded-lg text-xs font-semibold gap-2 transition data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-muted hover:text-white"
+              >
+                <FileText class="w-3.5 h-3.5" />
+                <span>Generation Logs</span>
+                <span class="text-[10px] font-mono opacity-70">({{ totalEventsCount }})</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-        <!-- Tab 1: Overview & Usage -->
-        <div v-show="activeTab === 'overview'" class="space-y-6">
+          <!-- Tab 1: Overview & Usage -->
+          <TabsContent value="overview" class="space-y-6 mt-0">
           <!-- 1. Top Stat Metric Cards -->
           <div class="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
           <!-- Total Generations -->
@@ -594,17 +617,17 @@ onMounted(() => {
             </div>
           </div>
         </div>
-      </div>
+      </TabsContent>
 
-      <!-- Tab 2: Format Discovery Lab -->
-      <div v-show="activeTab === 'discovery'">
-        <FormatDiscoveryLab :auth-key="getStoredAuthKey()" ref="formatLabRef" />
-      </div>
+        <!-- Tab 2: Format Discovery Lab -->
+        <TabsContent value="discovery" class="mt-0">
+          <FormatDiscoveryLab :auth-key="getStoredAuthKey()" ref="formatLabRef" />
+        </TabsContent>
 
-      <!-- Tab 3: Generation Logs -->
-      <div v-show="activeTab === 'logs'">
-        <!-- 3. Searchable Student Generation Log Table -->
-        <div class="bg-card border border-border rounded-xl overflow-hidden space-y-0">
+        <!-- Tab 3: Generation Logs -->
+        <TabsContent value="logs" class="mt-0">
+          <!-- 3. Searchable Student Generation Log Table -->
+          <div class="bg-card border border-border rounded-xl overflow-hidden space-y-0">
           <!-- Table Header & Filter Bar -->
           <div class="p-4 border-b border-border flex flex-wrap items-center justify-between gap-3 bg-card/60">
             <div class="flex items-center gap-2">
@@ -723,32 +746,21 @@ onMounted(() => {
             </div>
           </div>
         </div>
-      </div>
+      </TabsContent>
+      </Tabs>
     </div>
   </main>
 
-    <!-- Event Details Modal Drawer -->
-    <div
-      v-if="selectedEventForDetail"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-      @click.self="selectedEventForDetail = null"
-    >
-      <div class="bg-card border border-border rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-border">
-          <div class="flex items-center gap-2">
-            <FileText class="w-4 h-4 text-zinc-300" />
-            <h3 class="text-sm font-semibold text-white">Generation Run Details</h3>
-          </div>
-          <button
-            type="button"
-            @click="selectedEventForDetail = null"
-            class="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition"
-          >
-            &times;
-          </button>
-        </div>
+    <!-- Event Details Modal Drawer with shadcn Dialog -->
+    <Dialog :open="!!selectedEventForDetail" @update:open="(val) => !val && (selectedEventForDetail = null)">
+      <DialogContent class="bg-card border-border rounded-2xl max-w-lg w-full p-0 overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+        <DialogHeader class="px-5 py-4 border-b border-border flex flex-row items-center gap-2 space-y-0">
+          <FileText class="w-4 h-4 text-zinc-300" />
+          <DialogTitle class="text-sm font-semibold text-white">Generation Run Details</DialogTitle>
+          <DialogDescription class="sr-only">Detailed breakdown of compiled experiments in batch</DialogDescription>
+        </DialogHeader>
 
-        <div class="p-5 overflow-y-auto space-y-4 text-xs">
+        <div v-if="selectedEventForDetail" class="p-5 overflow-y-auto space-y-4 text-xs">
           <!-- Student Summary Grid -->
           <div class="grid grid-cols-2 gap-3 bg-inputBg/60 border border-border p-3.5 rounded-xl text-zinc-300">
             <div>
@@ -760,7 +772,7 @@ onMounted(() => {
               <span class="font-mono text-white">{{ selectedEventForDetail.roll_no }}</span>
             </div>
             <div>
-              <span class="text-[10px] text-muted uppercase block">Class & Batch</span>
+              <span class="text-[10px] text-muted uppercase block">Class &amp; Batch</span>
               <span>{{ selectedEventForDetail.class_name }} ({{ selectedEventForDetail.batch }})</span>
             </div>
             <div>
@@ -795,9 +807,9 @@ onMounted(() => {
               >
                 <div class="flex-1 space-y-0.5">
                   <div class="flex items-center gap-1.5">
-                    <span class="text-[10px] font-mono px-1 rounded bg-zinc-800 text-zinc-300">
+                    <Badge variant="outline" class="text-[10px] font-mono px-1 py-0 border-zinc-700 bg-zinc-800 text-zinc-300">
                       {{ exp.is_assignment ? 'Assign' : 'Exp' }} {{ exp.label }}
-                    </span>
+                    </Badge>
                     <span class="font-medium text-white text-xs">{{ exp.title || 'Untitled' }}</span>
                   </div>
                   <div class="text-[10px] text-muted flex items-center gap-3">
@@ -811,16 +823,17 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="px-5 py-3 border-t border-border bg-inputBg/40 flex justify-end">
-          <button
+        <DialogFooter class="px-5 py-3 border-t border-border bg-inputBg/40 flex justify-end">
+          <Button
             type="button"
+            variant="default"
+            size="sm"
             @click="selectedEventForDetail = null"
-            class="bg-white hover:bg-zinc-200 text-black font-semibold px-4 py-1.5 rounded-lg text-xs transition"
           >
             Close
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { X, HelpCircle, Sparkles } from 'lucide-vue-next';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { HelpCircle, Sparkles } from 'lucide-vue-next';
 
 defineProps<{
   isOpen: boolean;
@@ -11,28 +20,18 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div
-    v-if="isOpen"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-    @click.self="emit('close')"
-  >
-    <div class="bg-card border border-border rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col">
-      <!-- Modal Header -->
-      <div class="flex items-center justify-between px-5 py-4 border-b border-border">
-        <div class="flex items-center gap-2">
-          <HelpCircle class="w-4 h-4 text-zinc-300" />
-          <h3 class="text-sm font-semibold text-white">PDF Auto-Detection & Formatting Guide</h3>
-        </div>
-        <button
-          type="button"
-          @click="emit('close')"
-          class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition"
-        >
-          <X class="w-4 h-4" />
-        </button>
-      </div>
+  <Dialog :open="isOpen" @update:open="(val) => !val && emit('close')">
+    <DialogContent class="max-w-lg w-full p-0 overflow-hidden bg-card border-border flex flex-col">
+      <DialogHeader class="px-5 py-4 border-b border-border flex flex-row items-center gap-2 space-y-0">
+        <HelpCircle class="w-4 h-4 text-zinc-300" />
+        <DialogTitle class="text-sm font-semibold text-white">
+          PDF Auto-Detection & Formatting Guide
+        </DialogTitle>
+        <DialogDescription class="sr-only">
+          Guide to supported numbering and aim formats
+        </DialogDescription>
+      </DialogHeader>
 
-      <!-- Modal Body Content -->
       <div class="p-5 space-y-4 text-xs text-zinc-300 leading-relaxed overflow-y-auto max-h-[70vh]">
         <div class="bg-inputBg/60 border border-border p-3.5 rounded-xl space-y-1.5">
           <div class="flex items-center gap-1.5 text-white font-semibold">
@@ -87,16 +86,16 @@ const emit = defineEmits<{
         </div>
       </div>
 
-      <!-- Modal Footer -->
-      <div class="px-5 py-3 border-t border-border bg-inputBg/40 flex justify-end">
-        <button
+      <DialogFooter class="px-5 py-3 border-t border-border bg-inputBg/40 flex justify-end">
+        <Button
           type="button"
+          variant="default"
+          size="sm"
           @click="emit('close')"
-          class="bg-white hover:bg-zinc-200 text-black font-semibold px-4 py-1.5 rounded-lg text-xs transition"
         >
           Got It
-        </button>
-      </div>
-    </div>
-  </div>
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>

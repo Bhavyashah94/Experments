@@ -2,6 +2,8 @@
 import { computed } from 'vue';
 import type { DocumentItem } from '@/types/document';
 import { useDocumentStore } from '@/stores/useDocumentStore';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   GripVertical,
   ChevronDown,
@@ -92,13 +94,14 @@ function handleDrop(e: DragEvent) {
         {{ doc.title || 'Untitled Document' }}
       </span>
 
-      <!-- Page Count Badge -->
-      <span
+      <!-- Page Count Badge with shadcn Badge -->
+      <Badge
         v-if="doc.pages > 0"
+        variant="secondary"
         class="text-[11px] font-mono text-zinc-400 bg-inputBg border border-border px-2 py-0.5 rounded shrink-0 hidden sm:inline-block"
       >
         {{ doc.pages }} {{ doc.pages === 1 ? 'page' : 'pages' }}
-      </span>
+      </Badge>
 
       <!-- Ready Status Indicator Dot -->
       <span
@@ -129,37 +132,43 @@ function handleDrop(e: DragEvent) {
         </button>
       </div>
 
-      <!-- Action Buttons -->
+      <!-- Action Buttons with shadcn Button -->
       <div class="flex items-center gap-1.5 shrink-0" @click.stop>
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           @click="$emit('preview', doc)"
-          class="inline-flex items-center gap-1 text-xs text-subtle hover:text-white bg-inputBg border border-border hover:border-zinc-400 px-2.5 py-1 rounded-lg transition"
+          class="h-7 px-2.5 text-xs gap-1 border-border bg-inputBg hover:border-zinc-400"
           title="Live preview cover page"
         >
           <Eye class="w-3.5 h-3.5" />
           <span class="hidden sm:inline">Preview</span>
-        </button>
+        </Button>
 
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           @click="documentStore.downloadSingleDocument(doc)"
           :disabled="documentStore.isGenerating"
-          class="inline-flex items-center gap-1 text-xs text-subtle hover:text-white bg-inputBg border border-border hover:border-zinc-400 px-2.5 py-1 rounded-lg transition disabled:opacity-50"
+          class="h-7 px-2.5 text-xs gap-1 border-border bg-inputBg hover:border-zinc-400 disabled:opacity-50"
           title="Download single experiment with header"
         >
           <Download class="w-3.5 h-3.5" />
           <span class="hidden sm:inline">Download</span>
-        </button>
+        </Button>
 
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           @click="documentStore.removeDocument(doc.id)"
-          class="p-1.5 text-zinc-500 hover:text-red-400 rounded-lg hover:bg-zinc-800 transition"
+          class="size-7 p-1 text-zinc-500 hover:text-red-400 hover:bg-zinc-800"
           title="Remove document card"
         >
           <Trash2 class="w-3.5 h-3.5" />
-        </button>
+        </Button>
       </div>
 
       <!-- Collapse Chevron -->

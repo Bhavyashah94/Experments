@@ -4,7 +4,16 @@ import type { DocumentItem } from '@/types/document';
 import { useStudentStore } from '@/stores/useStudentStore';
 import { useProfileStore } from '@/stores/useProfileStore';
 import { PdfPreviewEngine, type PreviewData } from '@/services/pdfPreview';
-import { X, ZoomIn, ZoomOut, RotateCcw, Loader2 } from 'lucide-vue-next';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { ZoomIn, ZoomOut, RotateCcw, Loader2 } from 'lucide-vue-next';
 
 const props = defineProps<{
   isOpen: boolean;
@@ -81,60 +90,51 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div
-    v-if="isOpen"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-    @click.self="emit('close')"
-  >
-    <div class="bg-card border border-border rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
-      <!-- Modal Header -->
-      <div class="flex items-center justify-between px-5 py-3.5 border-b border-border bg-card">
+  <Dialog :open="isOpen" @update:open="(val) => !val && emit('close')">
+    <DialogContent class="max-w-2xl w-full max-h-[90vh] flex flex-col p-0 overflow-hidden bg-card border-border">
+      <DialogHeader class="px-5 py-3.5 border-b border-border flex flex-row items-center justify-between space-y-0">
         <div class="flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-          <h3 class="text-sm font-semibold text-white">
+          <DialogTitle class="text-sm font-semibold text-white">
             Header Live Preview — {{ doc?.isAssignment ? 'Assignment' : 'Experiment' }} {{ doc?.label }}
-          </h3>
+          </DialogTitle>
+          <DialogDescription class="sr-only">
+            Instant client-side PDF.js canvas overlay preview
+          </DialogDescription>
         </div>
 
-        <!-- Controls -->
-        <div class="flex items-center gap-2">
-          <button
+        <div class="flex items-center gap-1.5 pr-6">
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             @click="zoomScale = Math.max(0.8, zoomScale - 0.2)"
-            class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition"
             title="Zoom out"
           >
             <ZoomOut class="w-4 h-4" />
-          </button>
+          </Button>
           <span class="text-xs font-mono text-muted w-10 text-center">{{ Math.round(zoomScale * 100) }}%</span>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             @click="zoomScale = Math.min(2.0, zoomScale + 0.2)"
-            class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition"
             title="Zoom in"
           >
             <ZoomIn class="w-4 h-4" />
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             @click="renderCanvas"
-            class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition"
             title="Reload canvas"
           >
             <RotateCcw class="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            @click="emit('close')"
-            class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition ml-2"
-            title="Close preview (Esc)"
-          >
-            <X class="w-4 h-4" />
-          </button>
+          </Button>
         </div>
-      </div>
+      </DialogHeader>
 
-      <!-- Canvas Viewport -->
       <div class="flex-1 overflow-auto p-4 flex items-center justify-center bg-surface relative min-h-[450px]">
         <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center bg-surface/60 z-10">
           <Loader2 class="w-8 h-8 animate-spin text-white" />
@@ -144,17 +144,17 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Modal Footer -->
-      <div class="px-5 py-3 border-t border-border bg-card flex items-center justify-between text-xs text-muted">
+      <DialogFooter class="px-5 py-3 border-t border-border bg-card flex sm:items-center sm:justify-between text-xs text-muted">
         <span>Instant client-side PDF.js canvas overlay at 60 FPS</span>
-        <button
+        <Button
           type="button"
+          variant="secondary"
+          size="sm"
           @click="emit('close')"
-          class="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-1.5 rounded-lg transition"
         >
           Done
-        </button>
-      </div>
-    </div>
-  </div>
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>

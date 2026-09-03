@@ -11,13 +11,17 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@vueuse/core": "^10.9.0",
+    "@lucide/vue": "^1.40.0",
+    "@vueuse/core": "^10.11.1",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-vue-next": "^0.378.0",
     "pdfjs-dist": "^4.2.67",
     "pinia": "^2.1.7",
+    "reka-ui": "^2.10.4",
     "sortablejs": "^1.15.2",
     "tailwind-merge": "^2.3.0",
+    "tailwindcss-animate": "^1.0.7",
     "vue": "^3.4.27"
   },
   "devDependencies": {

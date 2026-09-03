@@ -99,6 +99,12 @@ describe('AnalyticsDashboard Component', () => {
     expect(wrapper.text()).toContain('18');
     expect(wrapper.text()).toContain('95.2%');
     expect(wrapper.text()).toContain('Internet of Things');
+
+    // Switch to Generation Logs tab via accessible Enter key
+    const tabs = wrapper.findAll('[role="tab"]');
+    expect(tabs.length).toBe(3);
+    await tabs[2].trigger('keydown', { key: 'Enter' });
+    await flushPromises();
     expect(wrapper.text()).toContain('Bhavya Shah');
   });
 

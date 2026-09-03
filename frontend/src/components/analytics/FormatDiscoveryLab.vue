@@ -5,6 +5,9 @@ import type {
   ExtractionDiagnosticsSummary,
   DiagnosticSampleItem,
 } from '@/types/analytics';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   FileSearch,
   CheckCircle2,
@@ -126,75 +129,85 @@ onMounted(() => {
         <div class="flex items-center gap-2">
           <FileSearch class="w-5 h-5 text-indigo-400" />
           <h2 class="text-base font-semibold text-zinc-100">Format Discovery & Extraction Lab</h2>
-          <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">Internal Dataset</span>
+          <Badge variant="secondary" class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border-indigo-500/20 font-medium">Internal Dataset</Badge>
         </div>
         <p class="text-xs text-muted mt-1 max-w-2xl">
           Analyze heuristic failures across institutional lab manual formats. Compare algorithmic extractions against student ground-truth titles, inspect raw header text, and download edge-case sample PDFs to build new regexes.
         </p>
       </div>
 
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="sm"
         @click="loadDiagnostics"
-        class="self-start sm:self-auto px-3 py-1.5 rounded-lg border border-border hover:border-zinc-500 text-xs font-medium text-zinc-300 hover:text-white transition flex items-center gap-1.5"
+        class="self-start sm:self-auto gap-1.5 text-xs border-border hover:border-zinc-500"
       >
         <span>Refresh Dataset</span>
-      </button>
+      </Button>
     </div>
 
-    <!-- Extraction Health KPI Cards -->
+    <!-- Extraction Health KPI Cards with shadcn Card -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="bg-zinc-900/60 border border-border rounded-xl p-4">
-        <div class="flex items-center justify-between text-xs text-muted">
-          <span>Auto-Extraction Rate</span>
-          <CheckCircle2 class="w-4 h-4 text-emerald-400" />
-        </div>
-        <div class="text-2xl font-bold text-zinc-100 mt-2">
-          {{ summary?.success_rate_percent ?? 100 }}%
-        </div>
-        <div class="text-[11px] text-muted mt-1">
-          High-confidence Aim / Header match
-        </div>
-      </div>
+      <Card class="bg-card border-border">
+        <CardContent class="p-4">
+          <div class="flex items-center justify-between text-xs text-muted">
+            <span>Auto-Extraction Rate</span>
+            <CheckCircle2 class="w-4 h-4 text-emerald-400" />
+          </div>
+          <div class="text-2xl font-bold font-mono text-zinc-100 mt-2">
+            {{ summary?.success_rate_percent ?? 100 }}%
+          </div>
+          <div class="text-[11px] text-muted mt-1">
+            High-confidence Aim / Header match
+          </div>
+        </CardContent>
+      </Card>
 
-      <div class="bg-zinc-900/60 border border-border rounded-xl p-4">
-        <div class="flex items-center justify-between text-xs text-muted">
-          <span>Student Discrepancies</span>
-          <AlertCircle class="w-4 h-4 text-amber-400" />
-        </div>
-        <div class="text-2xl font-bold text-zinc-100 mt-2">
-          {{ summary?.discrepancies_count ?? 0 }}
-        </div>
-        <div class="text-[11px] text-muted mt-1">
-          Ground-truth titles corrected by students
-        </div>
-      </div>
+      <Card class="bg-card border-border">
+        <CardContent class="p-4">
+          <div class="flex items-center justify-between text-xs text-muted">
+            <span>Student Discrepancies</span>
+            <AlertCircle class="w-4 h-4 text-amber-400" />
+          </div>
+          <div class="text-2xl font-bold font-mono text-zinc-100 mt-2">
+            {{ summary?.discrepancies_count ?? 0 }}
+          </div>
+          <div class="text-[11px] text-muted mt-1">
+            Ground-truth titles corrected by students
+          </div>
+        </CardContent>
+      </Card>
 
-      <div class="bg-zinc-900/60 border border-border rounded-xl p-4">
-        <div class="flex items-center justify-between text-xs text-muted">
-          <span>Total Documents Logged</span>
-          <Layers class="w-4 h-4 text-blue-400" />
-        </div>
-        <div class="text-2xl font-bold text-zinc-100 mt-2">
-          {{ summary?.total_documents ?? 0 }}
-        </div>
-        <div class="text-[11px] text-muted mt-1">
-          Retained indefinitely for analysis
-        </div>
-      </div>
+      <Card class="bg-card border-border">
+        <CardContent class="p-4">
+          <div class="flex items-center justify-between text-xs text-muted">
+            <span>Total Documents Logged</span>
+            <Layers class="w-4 h-4 text-blue-400" />
+          </div>
+          <div class="text-2xl font-bold font-mono text-zinc-100 mt-2">
+            {{ summary?.total_documents ?? 0 }}
+          </div>
+          <div class="text-[11px] text-muted mt-1">
+            Retained indefinitely for analysis
+          </div>
+        </CardContent>
+      </Card>
 
-      <div class="bg-zinc-900/60 border border-border rounded-xl p-4">
-        <div class="flex items-center justify-between text-xs text-muted">
-          <span>Research Samples</span>
-          <FileCode class="w-4 h-4 text-purple-400" />
-        </div>
-        <div class="text-2xl font-bold text-zinc-100 mt-2">
-          {{ totalSamples }}
-        </div>
-        <div class="text-[11px] text-muted mt-1">
-          Protected from storage rotation
-        </div>
-      </div>
+      <Card class="bg-card border-border">
+        <CardContent class="p-4">
+          <div class="flex items-center justify-between text-xs text-muted">
+            <span>Research Samples</span>
+            <FileCode class="w-4 h-4 text-purple-400" />
+          </div>
+          <div class="text-2xl font-bold font-mono text-zinc-100 mt-2">
+            {{ totalSamples }}
+          </div>
+          <div class="text-[11px] text-muted mt-1">
+            Protected from storage rotation
+          </div>
+        </CardContent>
+      </Card>
     </div>
 
     <!-- Diagnostic Breakdown: Methods & Failure Causes -->
@@ -289,33 +302,37 @@ onMounted(() => {
             </div>
 
             <div class="flex items-center gap-2">
-              <!-- Method Badge -->
-              <span
-                class="px-2 py-0.5 rounded border text-[11px] font-mono capitalize"
+              <!-- Method Badge with shadcn Badge -->
+              <Badge
+                variant="outline"
+                class="px-2 py-0.5 text-[11px] font-mono capitalize"
                 :class="getMethodBadgeClass(sample.extraction_method)"
               >
                 {{ sample.extraction_method.replace(/_/g, ' ') }}
-              </span>
+              </Badge>
 
               <!-- Failure Reason Badge -->
-              <span
+              <Badge
                 v-if="sample.failure_reason && sample.failure_reason !== 'none'"
-                class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[11px] font-mono"
+                variant="destructive"
+                class="px-2 py-0.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[11px] font-mono"
               >
                 {{ sample.failure_reason }}
-              </span>
+              </Badge>
 
               <!-- 1-Click Download Sample PDF -->
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 @click="handleDownloadSample(sample.sha256)"
                 :disabled="downloadingHash === sample.sha256"
-                class="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border disabled:opacity-50"
+                class="h-7 px-2.5 text-xs gap-1.5 border-border"
                 title="Download raw uploaded PDF for local analysis"
               >
                 <Download class="w-3.5 h-3.5" />
                 <span>{{ downloadingHash === sample.sha256 ? 'Downloading...' : 'Download Sample' }}</span>
-              </button>
+              </Button>
             </div>
           </div>
 
