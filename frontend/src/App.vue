@@ -91,7 +91,7 @@ onMounted(async () => {
   <div v-else class="min-h-screen bg-surface text-zinc-100 flex flex-col selection:bg-zinc-800 selection:text-white">
     <!-- Top Clean Sticky Navbar -->
     <nav class="bg-card/90 backdrop-blur-md border-b border-border sticky top-0 z-40">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4">
+      <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-3.5 flex items-center justify-between gap-3 sm:gap-4">
         <!-- Logo & Title -->
         <div class="min-w-0 flex items-center gap-3 shrink-0">
           <div class="w-2.5 h-2.5 rounded-full bg-white animate-pulse shrink-0"></div>
@@ -128,17 +128,17 @@ onMounted(async () => {
     </div>
 
     <!-- Main Fluid Responsive Studio Workspace -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-1 w-full">
-      <div class="mb-4 sm:mb-6 rounded-xl border border-border bg-card/40 px-3.5 py-2.5 text-[11px] sm:text-xs text-zinc-300 flex flex-wrap items-center gap-2">
+    <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8 flex-1 w-full">
+      <div class="mb-4 sm:mb-6 rounded-xl border border-border bg-card/40 px-3 py-2.5 text-[11px] sm:text-xs text-zinc-300 flex flex-wrap items-center gap-1.5 sm:gap-2">
         <span class="font-semibold text-white">Workflow:</span>
         <span>1) Fill student details</span>
-        <span class="text-zinc-500">→</span>
+        <span class="text-zinc-500 hidden sm:inline">→</span>
         <span>2) Upload PDFs</span>
-        <span class="text-zinc-500">→</span>
+        <span class="text-zinc-500 hidden sm:inline">→</span>
         <span>3) Compile &amp; download</span>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 lg:gap-8 items-start">
         <!-- Left Sticky Sidebar Column (lg:col-span-5 xl:col-span-4) -->
         <div class="lg:col-span-5 xl:col-span-4 lg:sticky lg:top-20 space-y-4">
           <!-- 1. Student Details Section -->
@@ -159,7 +159,7 @@ onMounted(async () => {
         </div>
 
         <!-- Right Document Studio Column (lg:col-span-7 xl:col-span-8) -->
-        <div class="lg:col-span-7 xl:col-span-8 space-y-6">
+        <div class="lg:col-span-7 xl:col-span-8 space-y-5 sm:space-y-6">
           <!-- 4. Document Card List (Reorderable with SortableJS) -->
           <section>
             <DocumentCardList @preview="handleOpenPreview" />
@@ -169,19 +169,19 @@ onMounted(async () => {
           <!-- State A: Not Compiled / Draft -->
           <section
             v-if="!documentStore.isCompiled"
-            class="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-card border border-border shadow-sm transition-all"
+            class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 sm:p-4 rounded-xl bg-card border border-border shadow-sm transition-all"
           >
             <div class="text-xs text-muted flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-zinc-600"></span>
               <span>Ready to compile {{ documentStore.documents.length }} document(s) with cover pages.</span>
             </div>
 
-            <div class="flex items-center gap-2.5">
+            <div class="flex items-center gap-2.5 w-full sm:w-auto">
               <button
                 type="button"
                 @click="handleCompile(false)"
                 :disabled="documentStore.isGenerating || documentStore.documents.length === 0"
-                class="text-xs font-semibold bg-white hover:bg-zinc-200 text-black px-5 py-2 rounded-lg transition shadow-md inline-flex items-center gap-2 disabled:opacity-50"
+                class="text-xs font-semibold bg-white hover:bg-zinc-200 text-black px-4 sm:px-5 py-2 rounded-lg transition shadow-md inline-flex items-center justify-center gap-2 disabled:opacity-50 w-full sm:w-auto"
               >
                 <Loader2 v-if="documentStore.isGenerating" class="w-4 h-4 animate-spin" />
                 <Layers v-else class="w-4 h-4" />
@@ -193,18 +193,18 @@ onMounted(async () => {
           <!-- State B: Compiled & Ready to Download -->
           <section
             v-else
-            class="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-card border border-emerald-900/60 shadow-sm transition-all"
+            class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 sm:p-4 rounded-xl bg-card border border-emerald-900/60 shadow-sm transition-all"
           >
             <div class="text-xs text-emerald-400 flex items-center gap-2 font-medium">
               <CheckCircle2 class="w-4 h-4 text-emerald-400 shrink-0" />
               <span>Compiled successfully ({{ documentStore.documents.length }} document{{ documentStore.documents.length === 1 ? '' : 's' }} ready).</span>
             </div>
 
-            <div class="flex flex-wrap items-center gap-2.5">
+            <div class="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2.5 w-full sm:w-auto">
               <button
                 type="button"
                 @click="documentStore.downloadCombinedPdf()"
-                class="text-xs font-semibold bg-white hover:bg-zinc-200 text-black px-4 py-2 rounded-lg transition shadow-md inline-flex items-center gap-1.5"
+                class="text-xs font-semibold bg-white hover:bg-zinc-200 text-black px-4 py-2 rounded-lg transition shadow-md inline-flex items-center justify-center gap-1.5 w-full sm:w-auto"
               >
                 <FileText class="w-4 h-4" />
                 <span>Download Combined PDF</span>
@@ -213,7 +213,7 @@ onMounted(async () => {
               <button
                 type="button"
                 @click="documentStore.downloadZipPackage()"
-                class="text-xs font-medium bg-inputBg border border-border hover:border-zinc-400 text-zinc-200 px-3.5 py-2 rounded-lg transition inline-flex items-center gap-1.5"
+                class="text-xs font-medium bg-inputBg border border-border hover:border-zinc-400 text-zinc-200 px-3.5 py-2 rounded-lg transition inline-flex items-center justify-center gap-1.5 w-full sm:w-auto"
               >
                 <FolderArchive class="w-4 h-4" />
                 <span>Download ZIP</span>
@@ -223,7 +223,7 @@ onMounted(async () => {
                 type="button"
                 @click="handleCompile(false)"
                 :disabled="documentStore.isGenerating"
-                class="text-xs text-zinc-400 hover:text-white px-2 py-1.5 rounded transition"
+                class="text-xs text-zinc-400 hover:text-white px-2 py-1.5 rounded transition text-center"
                 title="Re-compile report package"
               >
                 <span>Re-compile</span>
@@ -281,7 +281,7 @@ onMounted(async () => {
     <!-- Global Toast Notification -->
     <div
       v-if="showToast"
-      class="fixed bottom-6 right-6 z-50 bg-card border border-border shadow-2xl px-4 py-2.5 rounded-xl text-xs text-white flex items-center gap-2 animate-in fade-in slide-in-from-bottom-3 max-w-[92vw]"
+      class="fixed bottom-4 sm:bottom-6 left-3 right-3 sm:left-auto sm:right-6 z-50 bg-card border border-border shadow-2xl px-4 py-2.5 rounded-xl text-xs text-white flex items-center gap-2 animate-in fade-in slide-in-from-bottom-3 max-w-[92vw] sm:max-w-sm"
       role="status"
       aria-live="polite"
     >
