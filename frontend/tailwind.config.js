@@ -14,17 +14,17 @@ export default {
         mono: ['JetBrains Mono', 'Menlo', 'monospace'],
       },
       colors: {
-        // LabStudio legacy tokens
+        // LabStudio core tokens (preserves exact contrast & legibility across all forms)
         surface: '#09090b',
+        card: '#141417',
         cardHover: '#1c1c20',
+        border: '#3f3f46',
         borderHover: '#71717a',
         inputBg: '#18181b',
+        muted: '#a1a1aa',
         subtle: '#d4d4d8',
 
         // shadcn-vue semantic tokens
-        border: 'hsl(var(--border) / <alpha-value>)',
-        input: 'hsl(var(--input) / <alpha-value>)',
-        ring: 'hsl(var(--ring) / <alpha-value>)',
         background: 'hsl(var(--background) / <alpha-value>)',
         foreground: 'hsl(var(--foreground) / <alpha-value>)',
         primary: {
@@ -39,10 +39,6 @@ export default {
           DEFAULT: 'hsl(var(--destructive) / <alpha-value>)',
           foreground: 'hsl(var(--destructive-foreground) / <alpha-value>)',
         },
-        muted: {
-          DEFAULT: 'hsl(var(--muted) / <alpha-value>)',
-          foreground: 'hsl(var(--muted-foreground) / <alpha-value>)',
-        },
         accent: {
           DEFAULT: 'hsl(var(--accent) / <alpha-value>)',
           foreground: 'hsl(var(--accent-foreground) / <alpha-value>)',
@@ -51,10 +47,10 @@ export default {
           DEFAULT: 'hsl(var(--popover) / <alpha-value>)',
           foreground: 'hsl(var(--popover-foreground) / <alpha-value>)',
         },
-        card: {
-          DEFAULT: 'hsl(var(--card) / <alpha-value>)',
-          foreground: 'hsl(var(--card-foreground) / <alpha-value>)',
-        },
+        input: '#3f3f46',
+        ring: '#d4d4d8',
+        "muted-foreground": '#a1a1aa',
+        "card-foreground": '#fafafa',
       },
       borderRadius: {
         lg: 'var(--radius)',

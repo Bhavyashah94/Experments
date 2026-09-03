@@ -14,7 +14,7 @@ const delegatedProps = reactiveOmit(props, "class")
   <TabsList
     v-bind="delegatedProps"
     :class="cn(
-      'inline-flex items-center justify-center rounded-md bg-muted p-1 text-muted-foreground',
+      'inline-flex items-center justify-center rounded-md bg-inputBg border border-border p-1 text-zinc-400',
       props.class,
     )"
   >
