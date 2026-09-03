@@ -1,42 +1,28 @@
-// Vitest setup file for DOM environment and LocalStorage polyfill
+import { beforeEach } from 'vitest';
+
 class LocalStorageMock {
-  private store: Map<string, string> = new Map();
+  private store: Record<string, string> = {};
 
   clear() {
-    this.store.clear();
+    this.store = {};
   }
 
   getItem(key: string): string | null {
-    return this.store.get(key) ?? null;
+    return this.store[key] || null;
   }
 
   setItem(key: string, value: string) {
-    this.store.set(key, String(value));
+    this.store[key] = String(value);
   }
 
   removeItem(key: string) {
-    this.store.delete(key);
-  }
-
-  get length() {
-    return this.store.size;
-  }
-
-  key(index: number): string | null {
-    return Array.from(this.store.keys())[index] ?? null;
+    delete this.store[key];
   }
 }
 
-const mockStorage = new LocalStorageMock();
+const localStorageMock = new LocalStorageMock();
+(globalThis as any).localStorage = localStorageMock;
 
-Object.defineProperty(globalThis, 'localStorage', {
-  value: mockStorage,
-  writable: true,
-  configurable: true,
-});
-
-Object.defineProperty(window, 'localStorage', {
-  value: mockStorage,
-  writable: true,
-  configurable: true,
+beforeEach(() => {
+  localStorageMock.clear();
 });

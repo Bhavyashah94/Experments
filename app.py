@@ -9,6 +9,7 @@ from flask import Flask, render_template, request, jsonify, send_file, send_from
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from lab_core import (
     render_header_preview_png,
@@ -33,6 +34,8 @@ from lab_core import (
 APP_START_TIME = time.time()
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
+# Enable ProxyFix to respect Caddy reverse proxy headers (X-Forwarded-For, X-Forwarded-Proto, X-Forwarded-Host)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB max upload size
 
@@ -97,13 +100,13 @@ if is_analytics_enabled():
         pass
 
 # ── Storage Management & Dataset Rotation Engine ──────────────────────────────
-# Scaled for Oracle Cloud VM (45GB NVMe disk)
-MAX_STORAGE_BYTES = 15 * 1024 * 1024 * 1024      # 15 GB ceiling
-HIGH_WATERMARK_BYTES = 12 * 1024 * 1024 * 1024   # 12 GB trigger rotation threshold
-LOW_WATERMARK_BYTES = 10 * 1024 * 1024 * 1024    # 10 GB target clean size after rotation
-TARGET_STORAGE_BYTES = LOW_WATERMARK_BYTES       # Alias for backward compatibility
-OUTPUT_JOBS_MAX_AGE_SECONDS = 7 * 24 * 60 * 60   # 7 days for generated deliverable outputs in output/
-SWEEP_EVERY_SECONDS = 30 * 60                    # run sweep every 30 minutes
+MAX_STORAGE_GB = int(os.environ.get("MAX_STORAGE_GB", 15))
+MAX_STORAGE_BYTES = MAX_STORAGE_GB * 1024 * 1024 * 1024     # 15 GB ceiling
+HIGH_WATERMARK_BYTES = int(MAX_STORAGE_BYTES * 0.8)         # 12 GB trigger rotation threshold
+LOW_WATERMARK_BYTES = int(MAX_STORAGE_BYTES * 0.65)         # ~10 GB target clean size after rotation
+TARGET_STORAGE_BYTES = LOW_WATERMARK_BYTES                  # Alias for backward compatibility
+OUTPUT_JOBS_MAX_AGE_SECONDS = 24 * 60 * 60                  # 24 hours for compiled deliverables in output/
+SWEEP_EVERY_SECONDS = 30 * 60                               # 30-minute debounce window
 
 
 def _get_dir_size(path: str) -> int:
@@ -124,7 +127,7 @@ def _enforce_storage_quota():
     """
     Intelligent dual-watermark storage rotation.
     Triggered when total disk usage exceeds HIGH_WATERMARK_BYTES (or MAX_STORAGE_BYTES).
-    Tier 1: Prunes generated deliverable job directories in output/ older than 3 days.
+    Tier 1: Prunes generated deliverable job directories in output/ older than 24 hours.
     Tier 2: If still > target clean size, evicts non-protected uploads in LRU order.
     Tier 3: As a last resort, evicts oldest protected samples.
     """
@@ -140,18 +143,19 @@ def _enforce_storage_quota():
 
     current_size = total_size
 
-    # Tier 1: Prune output job directories older than 3 days first
+    # Tier 1: Prune output job directories older than 24 hours
     now = time.time()
     try:
-        for entry in os.listdir(OUTPUT_DIR):
-            epath = os.path.join(OUTPUT_DIR, entry)
-            if os.path.isdir(epath) and entry != "headers":
-                if (now - os.path.getmtime(epath)) > (3 * 24 * 3600):
-                    sz = _get_dir_size(epath)
-                    shutil.rmtree(epath, ignore_errors=True)
-                    current_size -= sz
-                    if current_size <= target_clean:
-                        return
+        if os.path.exists(OUTPUT_DIR):
+            for entry in os.listdir(OUTPUT_DIR):
+                epath = os.path.join(OUTPUT_DIR, entry)
+                if os.path.isdir(epath) and entry != "headers":
+                    if (now - os.path.getmtime(epath)) > OUTPUT_JOBS_MAX_AGE_SECONDS:
+                        sz = _get_dir_size(epath)
+                        shutil.rmtree(epath, ignore_errors=True)
+                        current_size -= sz
+                        if current_size <= target_clean:
+                            return
     except OSError:
         pass
 
@@ -161,16 +165,17 @@ def _enforce_storage_quota():
     protected_files = []
 
     try:
-        for fname in os.listdir(UPLOADS_DIR):
-            fpath = os.path.join(UPLOADS_DIR, fname)
-            if os.path.isfile(fpath):
-                file_hash = os.path.splitext(fname)[0].lower()
-                mtime = os.path.getmtime(fpath)
-                sz = os.path.getsize(fpath)
-                if file_hash in protected_hashes:
-                    protected_files.append((mtime, sz, fpath))
-                else:
-                    unprotected_files.append((mtime, sz, fpath))
+        if os.path.exists(UPLOADS_DIR):
+            for fname in os.listdir(UPLOADS_DIR):
+                fpath = os.path.join(UPLOADS_DIR, fname)
+                if os.path.isfile(fpath):
+                    file_hash = os.path.splitext(fname)[0].lower()
+                    mtime = os.path.getmtime(fpath)
+                    sz = os.path.getsize(fpath)
+                    if file_hash in protected_hashes:
+                        protected_files.append((mtime, sz, fpath))
+                    else:
+                        unprotected_files.append((mtime, sz, fpath))
     except OSError:
         pass
 
@@ -197,37 +202,52 @@ def _enforce_storage_quota():
             pass
 
 
+_last_sweep_time = 0.0
+_sweep_lock = threading.Lock()
+
+
 def _cleanup_ephemeral_storage():
     """
-    Background maintenance task:
-    1. Sweeps compiled deliverables in output/ older than OUTPUT_JOBS_MAX_AGE_SECONDS (7 days).
-    2. Uploaded documents have NO arbitrary TTL and are kept for research/analytics.
-    3. Runs storage rotation if usage exceeds 12 GB.
-    4. Re-schedules itself every 30 minutes.
+    Sweeps compiled deliverables in output/ older than 24 hours,
+    and enforces high-watermark storage quota without spawning runaway threads.
     """
     now = time.time()
     try:
-        for entry in os.listdir(OUTPUT_DIR):
-            epath = os.path.join(OUTPUT_DIR, entry)
-            if os.path.isdir(epath) and entry != "headers":
-                if (now - os.path.getmtime(epath)) > OUTPUT_JOBS_MAX_AGE_SECONDS:
-                    shutil.rmtree(epath, ignore_errors=True)
+        if os.path.exists(OUTPUT_DIR):
+            for entry in os.listdir(OUTPUT_DIR):
+                epath = os.path.join(OUTPUT_DIR, entry)
+                if os.path.isdir(epath) and entry != "headers":
+                    if (now - os.path.getmtime(epath)) > OUTPUT_JOBS_MAX_AGE_SECONDS:
+                        shutil.rmtree(epath, ignore_errors=True)
     except Exception as e:
         print(f"[cleanup] error sweeping output jobs: {e}")
 
-    # Enforce high-watermark storage rotation
     try:
         _enforce_storage_quota()
     except Exception as e:
         print(f"[cleanup] error enforcing storage quota: {e}")
+
+
+def maybe_cleanup_storage():
+    """Debounced, thread-safe maintenance run opportunistically on requests."""
+    global _last_sweep_time
+    now = time.time()
+    if (now - _last_sweep_time) < SWEEP_EVERY_SECONDS:
+        return
+    if not _sweep_lock.acquire(blocking=False):
+        return
+    try:
+        _last_sweep_time = now
+        _cleanup_ephemeral_storage()
     finally:
-        t = threading.Timer(SWEEP_EVERY_SECONDS, _cleanup_ephemeral_storage)
-        t.daemon = True
-        t.start()
+        _sweep_lock.release()
 
 
-# Start background cleanup thread when app boots
-_cleanup_ephemeral_storage()
+# Run clean startup sweep safely once without starting runaway daemon threads
+try:
+    _cleanup_ephemeral_storage()
+except Exception:
+    pass
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -271,9 +291,6 @@ def serve_spa_assets(filename):
     spa_assets_dir = os.path.join(BASE_DIR, "frontend", "dist", "assets")
     if os.path.exists(os.path.join(spa_assets_dir, filename)):
         return send_from_directory(spa_assets_dir, filename)
-    static_assets_dir = os.path.join(BASE_DIR, "static", "assets")
-    if os.path.exists(os.path.join(static_assets_dir, filename)):
-        return send_from_directory(static_assets_dir, filename)
     return ("Asset not found", 404)
 
 
@@ -306,7 +323,7 @@ def health_check():
 
 @app.route("/api/load-defaults", methods=["GET"])
 def get_defaults():
-    """Returns blank student defaults and dynamically scanned experiment PDF list."""
+    """Returns clean student profile defaults and initial empty document structure."""
     student_defaults = {
         "name": "",
         "roll_no": "",
@@ -317,26 +334,8 @@ def get_defaults():
         "text_color": "blue",
         "strikethrough_enabled": True,
     }
-    experiments = []
-    i = 1
-    while True:
-        pdf_path = os.path.join(BASE_DIR, f"Experiment {i}.pdf")
-        if not os.path.exists(pdf_path):
-            break
-        info = inspect_pdf_info(pdf_path)
-        experiments.append({
-            "num": i,
-            "label": str(i),
-            "title": "",
-            "is_assignment": False,
-            "perf_date": "",
-            "sub_date": "",
-            "file_exists": True,
-            "pages": info.get("pages", 0),
-        })
-        i += 1
-    if not experiments:
-        experiments.append({
+    experiments = [
+        {
             "num": 1,
             "label": "1",
             "title": "",
@@ -345,7 +344,8 @@ def get_defaults():
             "sub_date": "",
             "file_exists": False,
             "pages": 0,
-        })
+        }
+    ]
     return jsonify({"student": student_defaults, "experiments": experiments})
 
 
@@ -394,9 +394,9 @@ def upload_file():
     if header_peek != b"%PDF-":
         return jsonify({"success": False, "error": "Invalid file format: must be a valid PDF document."}), 400
 
-    # Ensure storage quota before allocating disk
+    # Ensure storage quota and perform debounced cleanup
     try:
-        _enforce_storage_quota()
+        maybe_cleanup_storage()
     except Exception:
         pass
 
@@ -569,9 +569,9 @@ def generate_pdfs():
     if len(experiments) > 60:
         return jsonify({"success": False, "error": "Batch limit exceeded (maximum 60 experiments allowed per compilation)."}), 400
 
-    # Enforce quota before job directory creation
+    # Enforce quota and run debounced cleanup before job creation
     try:
-        _enforce_storage_quota()
+        maybe_cleanup_storage()
     except Exception:
         pass
 

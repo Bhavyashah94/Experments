@@ -1,0 +1,3 @@
+lab.bhavyashah.me, labstudio.bhavyashah.me {
+    reverse_proxy header-app:7860
+}

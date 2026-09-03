@@ -289,8 +289,7 @@ def generate_job_documents(
         }
 
     job_output_dir = os.path.join(output_dir, job_id)
-    headers_dir = os.path.join(job_output_dir, "headers")
-    os.makedirs(headers_dir, exist_ok=True)
+    os.makedirs(job_output_dir, exist_ok=True)
 
     combined_doc = fitz.open()
     generated_files = []

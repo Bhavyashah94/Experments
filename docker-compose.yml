@@ -4,13 +4,31 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: experiment_header_app
-    ports:
-      - "7860:7860"
+    restart: unless-stopped
     environment:
       - PORT=7860
       - ANALYTICS_ADMIN_PASSWORD=${ANALYTICS_ADMIN_PASSWORD:-Raster0912@}
+      - MAX_STORAGE_GB=15
     volumes:
       - ./output:/app/output
       - ./uploads:/app/uploads
       - ./data:/app/data
-    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: labstudio_caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - header-app
+
+volumes:
+  caddy_data:
+  caddy_config:
