@@ -51,7 +51,7 @@ function handleDrop(e: DragEvent) {
   <div class="bg-card border border-border rounded-xl overflow-hidden shadow-sm transition-all duration-150">
     <!-- Accordion Header -->
     <div
-      class="flex items-center gap-2.5 px-4 py-3 cursor-pointer hover:bg-zinc-800/40 select-none"
+      class="flex flex-wrap sm:flex-nowrap items-center gap-2.5 px-4 py-3 cursor-pointer hover:bg-zinc-800/40 select-none"
       @click="doc.isOpen = !doc.isOpen"
     >
       <!-- Dedicated Drag Handle -->
@@ -86,7 +86,7 @@ function handleDrop(e: DragEvent) {
 
       <!-- Title Preview Text -->
       <span
-        class="flex-1 text-xs truncate"
+        class="order-last sm:order-none basis-full sm:basis-auto sm:flex-1 text-xs truncate mt-1 sm:mt-0"
         :class="doc.title ? 'text-zinc-200 font-medium' : 'italic text-muted'"
       >
         {{ doc.title || 'Untitled Document' }}
@@ -115,6 +115,7 @@ function handleDrop(e: DragEvent) {
           @click="$emit('move-up', index)"
           class="p-1 text-zinc-500 hover:text-white rounded hover:bg-zinc-800 transition"
           title="Move card up"
+          aria-label="Move card up"
         >
           <ArrowUp class="w-3.5 h-3.5" />
         </button>
@@ -124,6 +125,7 @@ function handleDrop(e: DragEvent) {
           @click="$emit('move-down', index)"
           class="p-1 text-zinc-500 hover:text-white rounded hover:bg-zinc-800 transition"
           title="Move card down"
+          aria-label="Move card down"
         >
           <ArrowDown class="w-3.5 h-3.5" />
         </button>
@@ -157,6 +159,7 @@ function handleDrop(e: DragEvent) {
           @click="documentStore.removeDocument(doc.id)"
           class="p-1.5 text-zinc-500 hover:text-red-400 rounded-lg hover:bg-zinc-800 transition"
           title="Remove document card"
+          aria-label="Remove document card"
         >
           <Trash2 class="w-3.5 h-3.5" />
         </button>
@@ -210,6 +213,10 @@ function handleDrop(e: DragEvent) {
           />
         </div>
       </div>
+
+      <p class="text-[10px] text-zinc-500 -mt-1">
+        Use DD/MM/YYYY format for both dates.
+      </p>
 
       <!-- Individual File Drop Area -->
       <div>

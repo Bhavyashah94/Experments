@@ -32,8 +32,13 @@ function triggerFileInput() {
     @dragleave.prevent="isDragging = false"
     @drop.prevent="handleDrop"
     @click="triggerFileInput"
-    class="border border-dashed rounded-xl p-6 text-center cursor-pointer transition-all duration-200"
+    @keydown.enter.prevent="triggerFileInput"
+    @keydown.space.prevent="triggerFileInput"
+    class="border border-dashed rounded-xl p-6 text-center cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-zinc-500/70"
     :class="isDragging ? 'border-white bg-zinc-800/80 scale-[1.005]' : 'border-border hover:border-zinc-500 bg-card/60'"
+    role="button"
+    tabindex="0"
+    aria-label="Upload experiment or assignment PDF files"
   >
     <input
       ref="fileInput"
@@ -54,6 +59,9 @@ function triggerFileInput() {
         </p>
         <p class="text-[11px] text-muted mt-0.5">
           Bulk multi-file upload automatically creates cards, numbers them, and extracts aim titles
+        </p>
+        <p class="text-[10px] text-zinc-500 mt-1">
+          PDF files only · Drag and drop or press Enter/Space to browse
         </p>
       </div>
     </div>

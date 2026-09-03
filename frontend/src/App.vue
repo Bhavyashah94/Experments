@@ -97,7 +97,7 @@ onMounted(async () => {
           <div class="w-2.5 h-2.5 rounded-full bg-white animate-pulse shrink-0"></div>
           <div>
             <h1 class="text-sm sm:text-base font-bold text-white tracking-tight whitespace-nowrap">LabStudio</h1>
-            <p class="text-[11px] text-muted hidden sm:block">Fill details, attach PDFs, and export standardized lab reports</p>
+            <p class="text-[11px] text-muted hidden md:block">Fill details, attach PDFs, and export standardized lab reports</p>
           </div>
         </div>
 
@@ -120,14 +120,25 @@ onMounted(async () => {
     <div
       v-if="isBackendWakingUp"
       class="bg-amber-950/40 border-b border-amber-800/60 px-4 py-2 text-center text-xs text-amber-200 flex items-center justify-center gap-2"
+      role="status"
+      aria-live="polite"
     >
       <Loader2 class="w-3.5 h-3.5 animate-spin shrink-0 text-amber-400" />
       <span>Connecting to backend service... (Render free-tier may take ~30s to wake up on first visit)</span>
     </div>
 
     <!-- Main Fluid Responsive Studio Workspace -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-1 w-full">
+      <div class="mb-4 sm:mb-6 rounded-xl border border-border bg-card/40 px-3.5 py-2.5 text-[11px] sm:text-xs text-zinc-300 flex flex-wrap items-center gap-2">
+        <span class="font-semibold text-white">Workflow:</span>
+        <span>1) Fill student details</span>
+        <span class="text-zinc-500">→</span>
+        <span>2) Upload PDFs</span>
+        <span class="text-zinc-500">→</span>
+        <span>3) Compile &amp; download</span>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
         <!-- Left Sticky Sidebar Column (lg:col-span-5 xl:col-span-4) -->
         <div class="lg:col-span-5 xl:col-span-4 lg:sticky lg:top-20 space-y-4">
           <!-- 1. Student Details Section -->
@@ -270,7 +281,9 @@ onMounted(async () => {
     <!-- Global Toast Notification -->
     <div
       v-if="showToast"
-      class="fixed bottom-6 right-6 z-50 bg-card border border-border shadow-2xl px-4 py-2.5 rounded-xl text-xs text-white flex items-center gap-2 animate-in fade-in slide-in-from-bottom-3"
+      class="fixed bottom-6 right-6 z-50 bg-card border border-border shadow-2xl px-4 py-2.5 rounded-xl text-xs text-white flex items-center gap-2 animate-in fade-in slide-in-from-bottom-3 max-w-[92vw]"
+      role="status"
+      aria-live="polite"
     >
       <div class="w-2 h-2 rounded-full bg-white animate-pulse shrink-0"></div>
       <span>{{ toastMessage }}</span>

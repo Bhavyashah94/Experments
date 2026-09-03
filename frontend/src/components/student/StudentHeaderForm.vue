@@ -100,7 +100,9 @@ function handleCreateProfile() {
     </div>
 
     <!-- Option Toggles (Responsive Grid) -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-0.5 text-xs">
+    <div>
+      <p class="text-[11px] font-semibold text-zinc-300 uppercase tracking-wider mb-2">Header options</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 pt-0.5 text-xs">
       <label class="flex items-center gap-2 cursor-pointer select-none bg-inputBg/40 hover:bg-inputBg/80 border border-border/60 rounded-lg p-2 transition">
         <input
           type="checkbox"
@@ -127,10 +129,13 @@ function handleCreateProfile() {
         />
         <span class="text-zinc-300 text-[11px] font-medium leading-tight">Include Index (TOC)</span>
       </label>
+      </div>
     </div>
 
     <!-- Student Metadata Form -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-border/60">
+    <div class="pt-1 border-t border-border/60">
+      <p class="text-[11px] font-semibold text-zinc-300 uppercase tracking-wider mb-2">Student details</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div>
         <label class="block text-[11px] font-medium text-muted uppercase tracking-wider mb-1">Student Name</label>
         <input
@@ -189,6 +194,7 @@ function handleCreateProfile() {
           placeholder="e.g. Internet of Things"
           class="w-full bg-inputBg border border-border text-xs text-white rounded-lg px-3 py-2 outline-none focus:border-zinc-400 transition"
         />
+      </div>
       </div>
     </div>
 
