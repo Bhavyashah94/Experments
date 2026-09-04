@@ -11,7 +11,7 @@ import LivePreviewModal from '../components/modals/LivePreviewModal.vue'
 import FormatGuideModal from '../components/modals/FormatGuideModal.vue'
 import ProfileShareModal from '../components/modals/ProfileShareModal.vue'
 import LivePreviewInspector from '../components/preview/LivePreviewInspector.vue'
-import { HelpCircle, Undo2, PanelRightClose, PanelRightOpen } from 'lucide-vue-next'
+import { HelpCircle, Undo2, PanelRightClose, PanelRightOpen } from '@lucide/vue'
 
 const DEFAULT_PREVIEW_WIDTH = 520
 const MIN_PREVIEW_WIDTH = 380
@@ -59,7 +59,7 @@ function resetPreviewWidth() {
 <template>
   <div class="h-screen w-screen bg-surface text-hi flex flex-col overflow-hidden antialiased selection:bg-amber-dim/50 selection:text-hi">
     <!-- Top Edge-to-Edge Sticky Navbar (h-12) -->
-    <header class="h-12 border-b border-edge bg-surface/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between shrink-0 z-30">
+    <header class="h-12 border-b border-edge bg-surface px-4 sm:px-6 flex items-center justify-between shrink-0 z-30">
       <!-- Left: Logo & Subtitle -->
       <div class="flex items-center gap-3">
         <h1 class="text-sm font-bold text-hi tracking-tight whitespace-nowrap flex items-center gap-2">
@@ -104,7 +104,7 @@ function resetPreviewWidth() {
     <div class="flex-1 min-h-0 flex overflow-hidden">
       <!-- 1. The Core App Container: (Left Pane | Right Pane) centered together -->
       <div class="flex-1 min-w-0 overflow-y-auto bg-surface p-4 sm:p-6 lg:p-8">
-        <div class="max-w-6xl xl:max-w-7xl mx-auto flex flex-col lg:flex-row gap-6 items-start">
+        <div class="max-w-6xl xl:max-w-7xl mx-auto flex flex-col lg:flex-row gap-6 items-stretch lg:items-start">
           <!-- LEFT PANE: Controls Sidebar (Student Details, Ink, Schedule, Upload) -->
           <aside class="w-full lg:w-80 xl:w-[320px] 2xl:w-[340px] shrink-0 lg:sticky lg:top-0 space-y-4">
             <!-- 1. Student Details Section -->
@@ -119,8 +119,8 @@ function resetPreviewWidth() {
             <!-- 4. Bulk PDF Upload Dropzone -->
             <BulkUploadCard />
 
-            <!-- Sidebar Compact Credits Footer -->
-            <div class="pt-3 border-t border-edge text-[11px] text-lo flex items-center justify-between select-none">
+            <!-- Sidebar Compact Credits Footer (Desktop only) -->
+            <div class="hidden lg:flex pt-3 border-t border-edge text-[11px] text-lo items-center justify-between select-none">
               <span>LabStudio v3.1</span>
               <div class="flex items-center gap-1 text-mid">
                 <span>Built by</span>
@@ -146,12 +146,37 @@ function resetPreviewWidth() {
           </aside>
 
           <!-- RIGHT PANE: Document Cards Workspace + Compilation Center -->
-          <main class="flex-1 min-w-0 space-y-4">
+          <main class="w-full lg:flex-1 min-w-0 max-w-full space-y-4">
             <!-- Document Cards List -->
             <DocumentList />
 
             <!-- Sticky Compilation Center -->
             <CompilationCenter />
+
+            <!-- Mobile Bottom Credits Footer -->
+            <div class="flex lg:hidden pt-8 pb-4 border-t border-edge text-[11px] text-lo items-center justify-between select-none">
+              <span>LabStudio v3.1</span>
+              <div class="flex items-center gap-1 text-mid">
+                <span>Built by</span>
+                <a
+                  href="https://github.com/Bhavyashah94"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-hi hover:text-amber transition underline font-medium"
+                >
+                  Bhavya Shah
+                </a>
+                <span>&amp;</span>
+                <a
+                  href="https://antigravity.google"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-hi hover:text-amber transition underline font-medium"
+                >
+                  Antigravity
+                </a>
+              </div>
+            </div>
           </main>
         </div>
       </div>

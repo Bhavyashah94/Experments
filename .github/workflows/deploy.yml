@@ -28,10 +28,10 @@ jobs:
       - name: Run Pytest
         run: python -m pytest tests/ -v
 
-      - name: Set up Node.js 26
+      - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 26
+          node-version: 22
           cache: "npm"
           cache-dependency-path: frontend/package.json
 
@@ -63,3 +63,4 @@ jobs:
             mkdir -p data uploads output
             sudo chown -R 1000:1000 data uploads output
             docker compose up -d --build
+            docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile || docker compose restart caddy

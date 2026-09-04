@@ -9,7 +9,7 @@ import {
   downloadZipPackage,
   unextractedCount,
 } from '../../store/labStore'
-import { Layers, Loader2, CheckCircle2, FileText, FolderArchive } from 'lucide-vue-next'
+import { Layers, Loader2, CheckCircle2, FileText, FolderArchive } from '@lucide/vue'
 </script>
 
 <template>

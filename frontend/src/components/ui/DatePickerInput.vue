@@ -5,7 +5,7 @@
  * the app's warm zinc / amber palette. No native browser picker.
  */
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { CalendarDays, ChevronLeft, ChevronRight } from '@lucide/vue'
 import { parseDate, formatDate } from '../../utils/dates'
 
 const props = withDefaults(

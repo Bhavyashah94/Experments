@@ -28,6 +28,10 @@ from lab_core import (
     record_student_ground_truth,
     get_extraction_diagnostics_summary,
     get_failed_or_discrepant_samples,
+    get_failed_aim_documents,
+    get_students_summary,
+    get_student_detail,
+    export_students_csv,
     get_protected_hashes_set,
 )
 
@@ -763,6 +767,113 @@ def analytics_events():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route("/api/analytics/students", methods=["GET"])
+@limiter.limit("60 per minute")
+def analytics_students():
+    """Returns aggregated student profiles with filtering by query, class, batch, and sorting."""
+    is_auth, err_resp = _check_analytics_auth()
+    if not is_auth:
+        return err_resp
+
+    query = request.args.get("q", "").strip() or None
+    class_name = request.args.get("class_name", "").strip() or None
+    batch = request.args.get("batch", "").strip() or None
+    sort_by = request.args.get("sort_by", "last_active").strip()
+    try:
+        limit = min(max(int(request.args.get("limit", 50)), 1), 200)
+        offset = max(int(request.args.get("offset", 0)), 0)
+    except ValueError:
+        limit, offset = 50, 0
+
+    try:
+        students, total, classes, batches = get_students_summary(
+            query=query,
+            class_name=class_name,
+            batch=batch,
+            sort_by=sort_by,
+            limit=limit,
+            offset=offset,
+        )
+        return jsonify({
+            "success": True,
+            "data": {
+                "students": students,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "classes": classes,
+                "batches": batches,
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/analytics/student-detail", methods=["GET"])
+@limiter.limit("60 per minute")
+def analytics_student_detail():
+    """Returns detailed dossier for a specific student with chronological compilation history."""
+    is_auth, err_resp = _check_analytics_auth()
+    if not is_auth:
+        return err_resp
+
+    roll_no = request.args.get("roll_no", "").strip() or None
+    student_name = request.args.get("student_name", "").strip() or None
+
+    if not roll_no and not student_name:
+        return jsonify({"success": False, "error": "roll_no or student_name parameter is required"}), 400
+
+    try:
+        dossier = get_student_detail(roll_no=roll_no, student_name=student_name)
+        if not dossier:
+            return jsonify({"success": False, "error": "Student not found"}), 404
+        return jsonify({"success": True, "data": dossier})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/analytics/failed-aims", methods=["GET"])
+@limiter.limit("60 per minute")
+def analytics_failed_aims():
+    """Returns documents where extraction failed or where students corrected the extracted title."""
+    is_auth, err_resp = _check_analytics_auth()
+    if not is_auth:
+        return err_resp
+
+    query = request.args.get("q", "").strip() or None
+    reason = request.args.get("reason", "").strip() or None
+    method = request.args.get("method", "").strip() or None
+    discrepancy_only = request.args.get("discrepancy_only", "").lower() in ("true", "1", "yes")
+
+    try:
+        limit = min(max(int(request.args.get("limit", 50)), 1), 200)
+        offset = max(int(request.args.get("offset", 0)), 0)
+    except ValueError:
+        limit, offset = 50, 0
+
+    try:
+        docs, total, summary = get_failed_aim_documents(
+            query=query,
+            reason=reason,
+            method=method,
+            discrepancy_only=discrepancy_only,
+            limit=limit,
+            offset=offset,
+        )
+        return jsonify({
+            "success": True,
+            "data": {
+                "documents": docs,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "summary": summary,
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route("/api/analytics/export", methods=["GET"])
 @limiter.limit("30 per minute")
 def analytics_export():
@@ -771,11 +882,21 @@ def analytics_export():
     if not is_auth:
         return err_resp
 
+    export_type = request.args.get("type", "events").lower().strip()
     export_format = request.args.get("format", "csv").lower().strip()
     date_str = time.strftime("%Y-%m-%d")
 
     try:
-        if export_format == "json":
+        if export_type == "students":
+            csv_data = export_students_csv()
+            return Response(
+                csv_data,
+                mimetype="text/csv",
+                headers={
+                    "Content-Disposition": f'attachment; filename="labstudio_students_{date_str}.csv"'
+                },
+            )
+        elif export_format == "json":
             json_data = export_analytics_json()
             return Response(
                 json_data,

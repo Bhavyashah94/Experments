@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { isGuideOpen } from '../../store/labStore'
-import { X, HelpCircle, CheckCircle, FileText } from 'lucide-vue-next'
+import { X, HelpCircle, CheckCircle, FileText } from '@lucide/vue'
 
 function close() {
   isGuideOpen.value = false

@@ -1,5 +1,14 @@
 import { reactive, ref, computed, watch } from 'vue'
-import type { StudentProfile, ExperimentItem, GenerationDeliverables, SubjectRecord, ExportedSubjectPackage } from './types'
+import type {
+  StudentProfile,
+  ExperimentItem,
+  GenerationDeliverables,
+  SubjectRecord,
+  SavedExperimentSummary,
+  ExportedSubjectPackage,
+  ExportedSubjectListPackage,
+  ExportedExperimentsOnlyPackage,
+} from './types'
 import { isStudentValid, validateStudent } from '../utils/validation'
 import { calculateSha256 } from '../utils/crypto'
 import { generateWeeklySequence } from '../utils/dates'
@@ -7,6 +16,65 @@ import { checkFileExists, uploadPdf } from '../api/upload'
 import { generateJournal, generateSingleExperiment, getDownloadUrl } from '../api/generate'
 
 const STORAGE_KEY = 'labstudio_v3_ace_state'
+
+export function mapExperimentToSaved(e: ExperimentItem): SavedExperimentSummary {
+  return {
+    num: e.num,
+    label: e.label,
+    title: e.title,
+    is_assignment: e.is_assignment,
+    perf_date: e.perf_date,
+    sub_date: e.sub_date,
+    pages: e.pages,
+    hash: e.hash || '',
+    filename: e.filename || '',
+    extraction_method: e.extraction_method || 'unextracted',
+    failure_reason: e.failure_reason || 'none',
+    text_snippet: e.text_snippet || '',
+  }
+}
+
+export function mapSavedToExperiment(
+  e: SavedExperimentSummary,
+  idx: number,
+  idPrefix = 'exp'
+): ExperimentItem {
+  return {
+    id: `${idPrefix}_${Date.now()}_${idx}`,
+    num: e.num || idx + 1,
+    label: e.label || String(idx + 1),
+    title: e.title || '',
+    is_assignment: Boolean(e.is_assignment),
+    perf_date: e.perf_date || '',
+    sub_date: e.sub_date || '',
+    hash: e.hash || '',
+    pages: e.pages || 1,
+    filename: e.filename || '',
+    isOpen: false,
+    extraction_method: e.extraction_method || (e.hash ? 'cached' : 'saved'),
+    failure_reason: e.failure_reason || 'none',
+    text_snippet: e.text_snippet || '',
+  }
+}
+
+export async function verifyPersistedUploads(): Promise<void> {
+  const itemsToCheck = experiments.value.filter((e) => e.hash)
+  if (itemsToCheck.length === 0) return
+
+  for (const item of itemsToCheck) {
+    try {
+      const res = await checkFileExists(item.hash)
+      if (!res.exists) {
+        console.warn(`[labStore] Persisted file "${item.filename}" (${item.hash}) is no longer on server.`)
+        item.hash = ''
+        item.filename = ''
+        item.failure_reason = 'Source PDF expired or removed from server'
+      }
+    } catch {
+      // Keep state intact on network/offline issue
+    }
+  }
+}
 
 function createDefaultSubject(name: string = 'Untitled Subject'): SubjectRecord {
   return {
@@ -85,21 +153,13 @@ function loadPersistedState(): void {
       if (active) {
         student.subject = active.name
         if (Array.isArray(active.savedExperiments) && active.savedExperiments.length > 0) {
-          experiments.value = active.savedExperiments.map((e, idx) => ({
-            id: `exp_saved_${idx}_${Date.now()}`,
-            num: e.num || idx + 1,
-            label: e.label || String(idx + 1),
-            title: e.title || '',
-            is_assignment: Boolean(e.is_assignment),
-            perf_date: e.perf_date || '',
-            sub_date: e.sub_date || '',
-            hash: '',
-            pages: e.pages || 1,
-            filename: '',
-            isOpen: false,
-            extraction_method: 'saved',
-            failure_reason: 'none',
-          }))
+          experiments.value = active.savedExperiments.map((e, idx) =>
+            mapSavedToExperiment(e, idx, 'exp_saved')
+          )
+          if (experiments.value.length > 0 && !selectedId.value) {
+            selectedId.value = experiments.value[0].id
+          }
+          verifyPersistedUploads()
         }
       }
     }
@@ -129,6 +189,17 @@ export const isSplitPreviewOpen = ref(true)
 export const previewItem = ref<ExperimentItem | null>(null)
 export const isGuideOpen = ref(false)
 export const isShareOpen = ref(false)
+export const shareModalInitialTab = ref<'export' | 'import'>('export')
+export const shareModalExportType = ref<'subject_list' | 'experiments_only' | 'current_subject'>('subject_list')
+
+export function openShareModal(options?: {
+  tab?: 'export' | 'import'
+  exportType?: 'subject_list' | 'experiments_only' | 'current_subject'
+}): void {
+  if (options?.tab) shareModalInitialTab.value = options.tab
+  if (options?.exportType) shareModalExportType.value = options.exportType
+  isShareOpen.value = true
+}
 
 export interface UndoEntry {
   item: ExperimentItem
@@ -187,15 +258,7 @@ function persistState() {
     const current = activeSubject.value
     if (current) {
       current.name = student.subject
-      current.savedExperiments = experiments.value.map((e) => ({
-        num: e.num,
-        label: e.label,
-        title: e.title,
-        is_assignment: e.is_assignment,
-        perf_date: e.perf_date,
-        sub_date: e.sub_date,
-        pages: e.pages,
-      }))
+      current.savedExperiments = experiments.value.map(mapExperimentToSaved)
     }
 
     const payload = {
@@ -230,21 +293,23 @@ watch(
   { deep: true }
 )
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    if (saveTimeout) {
+      clearTimeout(saveTimeout)
+      saveTimeout = null
+    }
+    persistState()
+  })
+}
+
 // ── Subject Management Actions ────────────────────────────────────────────────
 
 export function addSubject(name: string): SubjectRecord {
   const trimmed = name.trim() || `Subject ${subjects.value.length + 1}`
   // 1. Save current experiments into active subject
   if (activeSubject.value) {
-    activeSubject.value.savedExperiments = experiments.value.map((e) => ({
-      num: e.num,
-      label: e.label,
-      title: e.title,
-      is_assignment: e.is_assignment,
-      perf_date: e.perf_date,
-      sub_date: e.sub_date,
-      pages: e.pages,
-    }))
+    activeSubject.value.savedExperiments = experiments.value.map(mapExperimentToSaved)
   }
 
   // 2. Create new subject
@@ -292,15 +357,7 @@ export function switchSubject(id: string): void {
 
   // 1. Save current experiments into currently active subject
   if (activeSubject.value) {
-    activeSubject.value.savedExperiments = experiments.value.map((e) => ({
-      num: e.num,
-      label: e.label,
-      title: e.title,
-      is_assignment: e.is_assignment,
-      perf_date: e.perf_date,
-      sub_date: e.sub_date,
-      pages: e.pages,
-    }))
+    activeSubject.value.savedExperiments = experiments.value.map(mapExperimentToSaved)
   }
 
   // 2. Set new active subject
@@ -309,21 +366,10 @@ export function switchSubject(id: string): void {
 
   // 3. Restore experiments from target subject
   if (Array.isArray(target.savedExperiments) && target.savedExperiments.length > 0) {
-    experiments.value = target.savedExperiments.map((e, idx) => ({
-      id: `exp_${Date.now()}_${idx}`,
-      num: e.num || idx + 1,
-      label: e.label || String(idx + 1),
-      title: e.title || '',
-      is_assignment: Boolean(e.is_assignment),
-      perf_date: e.perf_date || '',
-      sub_date: e.sub_date || '',
-      hash: '',
-      pages: e.pages || 1,
-      filename: '',
-      isOpen: false,
-      extraction_method: 'saved',
-      failure_reason: 'none',
-    }))
+    experiments.value = target.savedExperiments.map((e, idx) =>
+      mapSavedToExperiment(e, idx, 'exp')
+    )
+    verifyPersistedUploads()
   } else {
     experiments.value = []
   }
@@ -358,14 +404,174 @@ export function exportSubjectPackage(): string {
   return JSON.stringify(pkg, null, 2)
 }
 
-export function importSubjectPackage(jsonStr: string): { success: boolean; subjectName?: string; count?: number; error?: string } {
+export function exportSubjectListPackage(): string {
+  // Sync current active subject name if modified
+  if (activeSubject.value) {
+    activeSubject.value.name = student.subject
+  }
+
+  const subjectNames = subjects.value
+    .map((s) => {
+      const isCurrent = s.id === activeSubjectId.value
+      return (isCurrent ? (student.subject || s.name) : s.name).trim()
+    })
+    .filter(Boolean)
+
+  const pkg: ExportedSubjectListPackage = {
+    labstudio_version: '3.1',
+    type: 'subject_list_share',
+    subjects: subjectNames,
+  }
+
+  return JSON.stringify(pkg, null, 2)
+}
+
+export function exportExperimentsOnlyPackage(): string {
+  const pkg: ExportedExperimentsOnlyPackage = {
+    labstudio_version: '3.1',
+    type: 'experiments_share',
+    experiments: experiments.value.map((d) => ({
+      label: d.label,
+      isAssignment: d.is_assignment,
+      title: d.title,
+      perfDate: d.perf_date,
+      subDate: d.sub_date,
+    })),
+  }
+
+  return JSON.stringify(pkg, null, 2)
+}
+
+export function importUniversalPackage(
+  jsonStr: string,
+  options: { mode?: 'replace' | 'append' } = { mode: 'replace' }
+): {
+  success: boolean
+  shareType?: 'subject_list' | 'experiments_only' | 'subject'
+  summary?: string
+  subjectName?: string
+  count?: number
+  error?: string
+} {
   try {
     const parsed = JSON.parse(jsonStr)
+
+    // A. Experiments Only Share (Pure manifest without subject metadata)
+    const isExpsOnly =
+      parsed.type === 'experiments_share' ||
+      (Array.isArray(parsed.experiments) && !parsed.subject && !parsed.subjects && !parsed.profile?.subject)
+
+    if (isExpsOnly) {
+      const rawExps = Array.isArray(parsed.experiments) ? parsed.experiments : []
+      if (rawExps.length === 0) {
+        return { success: false, error: 'The experiment manifest contains no experiments.' }
+      }
+
+      deliverables.value = null
+      const startIndex = options.mode === 'append' ? experiments.value.length : 0
+      const formattedItems: ExperimentItem[] = rawExps.map((e: any, idx: number) => {
+        const num = startIndex + idx + 1
+        return {
+          id: `exp_imp_${Date.now()}_${idx}`,
+          num,
+          label: String(e.label || num),
+          title: String(e.title || ''),
+          is_assignment: Boolean(e.isAssignment !== undefined ? e.isAssignment : e.is_assignment),
+          perf_date: String(e.perfDate || e.perf_date || student.global_perf_date || ''),
+          sub_date: String(e.subDate || e.sub_date || student.global_sub_date || ''),
+          hash: '',
+          pages: 1,
+          filename: '',
+          isOpen: false,
+          extraction_method: 'saved',
+          failure_reason: 'none',
+        }
+      })
+
+      if (options.mode === 'append') {
+        experiments.value.push(...formattedItems)
+      } else {
+        experiments.value = formattedItems
+      }
+
+      if (experiments.value.length > 0 && !selectedId.value) {
+        selectedId.value = experiments.value[0].id
+      }
+
+      const targetName = student.subject || activeSubject.value?.name || 'Current Subject'
+      const actionText = options.mode === 'append' ? 'Appended' : 'Loaded'
+      showToast(`${actionText} ${formattedItems.length} experiment(s) into "${targetName}"`)
+
+      return {
+        success: true,
+        shareType: 'experiments_only',
+        count: formattedItems.length,
+        summary: `${actionText} ${formattedItems.length} experiment(s) directly into "${targetName}" (Subject name unchanged)`,
+      }
+    }
+
+    // B. Subject List Share (Pure list of subject names without experiments)
+    if (parsed.type === 'subject_list_share' || (Array.isArray(parsed.subjects) && !parsed.experiments)) {
+      const rawSubjects = Array.isArray(parsed.subjects) ? parsed.subjects : []
+      if (rawSubjects.length === 0) {
+        return { success: false, error: 'The subject list contains no subjects.' }
+      }
+
+      const subjectNames: string[] = rawSubjects
+        .map((s: any) => (typeof s === 'string' ? s : String(s.name || s.subject || '')).trim())
+        .filter((name: string) => Boolean(name))
+
+      if (subjectNames.length === 0) {
+        return { success: false, error: 'No valid subject names found in the subject list.' }
+      }
+
+      let addedCount = 0
+      let firstAddedId: string | null = null
+
+      // Check if current workspace has only 1 default empty subject
+      const hasOnlyDefaultEmpty =
+        subjects.value.length === 1 &&
+        (subjects.value[0].name === 'Untitled Subject' || !subjects.value[0].name.trim()) &&
+        experiments.value.length === 0 &&
+        (!subjects.value[0].savedExperiments || subjects.value[0].savedExperiments.length === 0)
+
+      if (options.mode === 'replace' || hasOnlyDefaultEmpty) {
+        subjects.value = []
+        experiments.value = []
+        deliverables.value = null
+      }
+
+      subjectNames.forEach((name) => {
+        const exists = subjects.value.some((s) => s.name.toLowerCase() === name.toLowerCase())
+        if (!exists || options.mode === 'replace') {
+          const newSubj = createDefaultSubject(name)
+          subjects.value.push(newSubj)
+          addedCount++
+          if (!firstAddedId) firstAddedId = newSubj.id
+        }
+      })
+
+      if (firstAddedId) {
+        activeSubjectId.value = ''
+        switchSubject(firstAddedId)
+      }
+
+      persistState()
+      showToast(`Imported ${addedCount} subject(s) into your studio!`)
+      return {
+        success: true,
+        shareType: 'subject_list',
+        count: addedCount,
+        summary: `Imported ${addedCount} subject(s) into your Subject Switcher`,
+      }
+    }
+
+    // C. Single Subject Share (Legacy / Standard Subject Package)
     const rawSubject = (parsed.subject || parsed.profile?.subject || parsed.profile?.name || 'Imported Subject').trim()
     const newSubj = createDefaultSubject(rawSubject)
-
     const rawExps = Array.isArray(parsed.experiments) ? parsed.experiments : []
-    newSubj.savedExperiments = rawExps.map((e: any, idx: number) => ({
+
+    const singleSavedList = rawExps.map((e: any, idx: number) => ({
       num: idx + 1,
       label: String(e.label || idx + 1),
       title: String(e.title || ''),
@@ -374,14 +580,26 @@ export function importSubjectPackage(jsonStr: string): { success: boolean; subje
       sub_date: String(e.subDate || e.sub_date || student.global_sub_date || ''),
       pages: 1,
     }))
+    newSubj.savedExperiments = singleSavedList
 
     subjects.value.push(newSubj)
     switchSubject(newSubj.id)
 
-    return { success: true, subjectName: newSubj.name, count: newSubj.savedExperiments?.length || 0 }
+    showToast(`Imported "${newSubj.name}" with ${singleSavedList.length} experiment(s)!`)
+    return {
+      success: true,
+      shareType: 'subject',
+      subjectName: newSubj.name,
+      count: singleSavedList.length,
+      summary: `Created subject "${newSubj.name}" with ${singleSavedList.length} experiment(s)`,
+    }
   } catch (err: any) {
     return { success: false, error: err.message || 'Malformed JSON file.' }
   }
+}
+
+export function importSubjectPackage(jsonStr: string): { success: boolean; subjectName?: string; count?: number; error?: string } {
+  return importUniversalPackage(jsonStr)
 }
 
 // ── Orchestration Actions ─────────────────────────────────────────────────────

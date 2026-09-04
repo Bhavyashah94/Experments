@@ -27,9 +27,16 @@ export interface UploadResponse {
 }
 
 export async function checkFileExists(hash: string): Promise<FileExistsResponse> {
-  return request<FileExistsResponse>(`/api/file/${encodeURIComponent(hash)}/exists`, {
-    method: 'GET',
-  })
+  try {
+    return await request<FileExistsResponse>(`/api/file/${encodeURIComponent(hash)}/exists`, {
+      method: 'GET',
+    })
+  } catch (err: any) {
+    if (err.status === 404) {
+      return { exists: false }
+    }
+    throw err
+  }
 }
 
 export async function uploadPdf(

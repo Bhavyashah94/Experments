@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { student } from '../../store/labStore'
-import { Pipette } from 'lucide-vue-next'
+import { Pipette } from '@lucide/vue'
 
 const COLOR_SWATCHES = [
   { name: 'Royal Blue', hex: '#0000bf' },

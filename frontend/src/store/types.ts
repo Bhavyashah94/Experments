@@ -1,15 +1,22 @@
+export interface SavedExperimentSummary {
+  num: number
+  label: string
+  title: string
+  is_assignment: boolean
+  perf_date: string
+  sub_date: string
+  pages?: number
+  hash?: string
+  filename?: string
+  extraction_method?: string
+  failure_reason?: string
+  text_snippet?: string
+}
+
 export interface SubjectRecord {
   id: string
   name: string
-  savedExperiments?: Array<{
-    num: number
-    label: string
-    title: string
-    is_assignment: boolean
-    perf_date: string
-    sub_date: string
-    pages?: number
-  }>
+  savedExperiments?: SavedExperimentSummary[]
 }
 
 export interface StudentProfile {
@@ -65,7 +72,7 @@ export interface GenerationDeliverables {
 
 export interface ExportedSubjectPackage {
   labstudio_version: string
-  type: string
+  type: 'subject_share'
   subject: string
   experiments: Array<{
     label: string
@@ -75,3 +82,22 @@ export interface ExportedSubjectPackage {
     subDate: string
   }>
 }
+
+export interface ExportedSubjectListPackage {
+  labstudio_version: string
+  type: 'subject_list_share'
+  subjects: string[]
+}
+
+export interface ExportedExperimentsOnlyPackage {
+  labstudio_version: string
+  type: 'experiments_share'
+  experiments: Array<{
+    label: string
+    isAssignment: boolean
+    title: string
+    perfDate: string
+    subDate: string
+  }>
+}
+

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { student, applyGlobalDates, applyWeeklyDates, clearAllDates, hasAnyDates } from '../../store/labStore'
-import { RefreshCw, Calendar, XCircle } from 'lucide-vue-next'
+import { RefreshCw, Calendar, XCircle } from '@lucide/vue'
 import DatePickerInput from '../ui/DatePickerInput.vue'
 </script>
 

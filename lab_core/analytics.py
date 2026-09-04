@@ -104,6 +104,7 @@ def get_db_connection(db_path: Optional[str] = None) -> sqlite3.Connection:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_subject ON generation_events(subject);")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_student ON generation_events(student_name, roll_no);")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_success ON generation_events(success);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_gen_class_batch ON generation_events(class_name, batch);")
 
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS extraction_diagnostics (
@@ -126,6 +127,7 @@ def get_db_connection(db_path: Optional[str] = None) -> sqlite3.Connection:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_diag_method ON extraction_diagnostics(extraction_method);")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_diag_failure ON extraction_diagnostics(failure_reason);")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_diag_discrepancy ON extraction_diagnostics(discrepancy);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_diag_uploaded ON extraction_diagnostics(uploaded_at);")
     except Exception as e:
         logger.warning(f"Failed to initialize schema for {path}: {e}")
 
@@ -483,6 +485,279 @@ def export_analytics_json(db_path: Optional[str] = None) -> str:
     return json.dumps(payload, indent=2)
 
 
+# ── Student-Wise Analytics & Dossiers ─────────────────────────────────────────
+
+def get_students_summary(
+    query: Optional[str] = None,
+    class_name: Optional[str] = None,
+    batch: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    sort_by: str = "last_active",
+    db_path: Optional[str] = None,
+) -> Tuple[List[Dict[str, Any]], int, List[str], List[str]]:
+    """
+    Aggregates generation events grouped by student identity (roll_no, student_name).
+    Returns (students_list, total_count, available_classes, available_batches).
+    """
+    init_analytics_db(db_path)
+    conn = get_db_connection(db_path)
+    try:
+        cur = conn.cursor()
+
+        # Fetch distinct classes and batches for UI filters
+        cur.execute("SELECT DISTINCT class_name FROM generation_events WHERE class_name IS NOT NULL AND TRIM(class_name) != '' ORDER BY class_name ASC;")
+        available_classes = [r[0] for r in cur.fetchall()]
+
+        cur.execute("SELECT DISTINCT batch FROM generation_events WHERE batch IS NOT NULL AND TRIM(batch) != '' ORDER BY batch ASC;")
+        available_batches = [r[0] for r in cur.fetchall()]
+
+        conditions = []
+        params: List[Any] = []
+
+        if query:
+            q_clean = f"%{query.strip()}%"
+            conditions.append("(student_name LIKE ? OR roll_no LIKE ?)")
+            params.extend([q_clean, q_clean])
+
+        if class_name:
+            conditions.append("class_name = ?")
+            params.append(class_name.strip())
+
+        if batch:
+            conditions.append("batch = ?")
+            params.append(batch.strip())
+
+        where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+        # Total unique students count matching filter
+        cur.execute(f"""
+            SELECT COUNT(*) as total_students FROM (
+                SELECT 1
+                FROM generation_events
+                {where_clause}
+                GROUP BY
+                    COALESCE(NULLIF(TRIM(roll_no), ''), '—'),
+                    COALESCE(NULLIF(TRIM(student_name), ''), 'Anonymous')
+            );
+        """, params)
+        total_students = cur.fetchone()["total_students"]
+
+        # Sort order mapping
+        sort_clause = "ORDER BY last_active DESC"
+        if sort_by == "compilations":
+            sort_clause = "ORDER BY total_compilations DESC, last_active DESC"
+        elif sort_by == "experiments":
+            sort_clause = "ORDER BY total_experiments DESC, last_active DESC"
+        elif sort_by == "roll_no":
+            sort_clause = "ORDER BY roll_no ASC, last_active DESC"
+        elif sort_by == "name":
+            sort_clause = "ORDER BY student_name ASC, last_active DESC"
+
+        query_params = list(params) + [limit, offset]
+        cur.execute(f"""
+            SELECT
+                COALESCE(NULLIF(TRIM(roll_no), ''), '—') as roll_no,
+                COALESCE(NULLIF(TRIM(student_name), ''), 'Anonymous') as student_name,
+                COALESCE(MAX(NULLIF(TRIM(class_name), '')), '—') as class_name,
+                COALESCE(MAX(NULLIF(TRIM(batch), '')), '—') as batch,
+                COALESCE(MAX(NULLIF(TRIM(sem), '')), '—') as sem,
+                COUNT(*) as total_compilations,
+                SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful_compilations,
+                SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed_compilations,
+                SUM(experiment_count) as total_experiments,
+                GROUP_CONCAT(DISTINCT subject) as subjects_csv,
+                COUNT(DISTINCT subject) as subjects_count,
+                MIN(timestamp) as first_active,
+                MAX(timestamp) as last_active
+            FROM generation_events
+            {where_clause}
+            GROUP BY
+                COALESCE(NULLIF(TRIM(roll_no), ''), '—'),
+                COALESCE(NULLIF(TRIM(student_name), ''), 'Anonymous')
+            {sort_clause}
+            LIMIT ? OFFSET ?;
+        """, query_params)
+
+        rows = []
+        for r in cur.fetchall():
+            subjects_csv = r["subjects_csv"] or ""
+            subjects_list = [s.strip() for s in subjects_csv.split(",") if s.strip()]
+            unique_subjects = list(dict.fromkeys(subjects_list))
+
+            rows.append({
+                "roll_no": r["roll_no"],
+                "student_name": r["student_name"],
+                "class_name": r["class_name"],
+                "batch": r["batch"],
+                "sem": r["sem"],
+                "total_compilations": r["total_compilations"],
+                "successful_compilations": r["successful_compilations"],
+                "failed_compilations": r["failed_compilations"],
+                "total_experiments": r["total_experiments"] or 0,
+                "subjects": unique_subjects,
+                "subjects_count": len(unique_subjects),
+                "first_active": r["first_active"],
+                "last_active": r["last_active"],
+            })
+
+        return rows, total_students, available_classes, available_batches
+    finally:
+        conn.close()
+
+
+def get_student_detail(
+    roll_no: Optional[str] = None,
+    student_name: Optional[str] = None,
+    db_path: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Returns full student dossier: profile metrics and chronological timeline
+    of every compilation event for this student.
+    """
+    init_analytics_db(db_path)
+    conn = get_db_connection(db_path)
+    try:
+        cur = conn.cursor()
+
+        conditions = []
+        params = []
+        if roll_no and roll_no != "—":
+            conditions.append("roll_no = ?")
+            params.append(roll_no.strip())
+        if student_name and student_name != "Anonymous":
+            conditions.append("student_name = ?")
+            params.append(student_name.strip())
+
+        if not conditions:
+            return None
+
+        where_clause = "WHERE " + " AND ".join(conditions)
+
+        cur.execute(f"""
+            SELECT
+                id,
+                timestamp,
+                student_name,
+                roll_no,
+                batch,
+                class_name,
+                sem,
+                subject,
+                experiment_count,
+                experiments_json,
+                generation_type,
+                success,
+                error_message,
+                duration_ms
+            FROM generation_events
+            {where_clause}
+            ORDER BY id DESC;
+        """, params)
+
+        raw_events = cur.fetchall()
+        if not raw_events:
+            return None
+
+        # Build chronological timeline
+        timeline = []
+        all_subjects = []
+        total_experiments = 0
+        total_duration = 0.0
+
+        for r in raw_events:
+            exp_items = []
+            if r["experiments_json"]:
+                try:
+                    exp_items = json.loads(r["experiments_json"])
+                except Exception:
+                    pass
+
+            if r["subject"]:
+                all_subjects.append(r["subject"])
+            total_experiments += (r["experiment_count"] or 0)
+            total_duration += (r["duration_ms"] or 0.0)
+
+            timeline.append({
+                "id": r["id"],
+                "timestamp": r["timestamp"],
+                "subject": r["subject"] or "—",
+                "experiment_count": r["experiment_count"],
+                "experiments": exp_items,
+                "generation_type": r["generation_type"],
+                "success": bool(r["success"]),
+                "error_message": r["error_message"],
+                "duration_ms": r["duration_ms"],
+            })
+
+        latest = raw_events[0]
+        unique_subjects = list(dict.fromkeys(all_subjects))
+
+        return {
+            "roll_no": latest["roll_no"] or "—",
+            "student_name": latest["student_name"] or "Anonymous",
+            "class_name": latest["class_name"] or "—",
+            "batch": latest["batch"] or "—",
+            "sem": latest["sem"] or "—",
+            "total_compilations": len(raw_events),
+            "successful_compilations": sum(1 for r in raw_events if r["success"]),
+            "failed_compilations": sum(1 for r in raw_events if not r["success"]),
+            "total_experiments": total_experiments,
+            "avg_duration_ms": round(total_duration / len(raw_events), 1) if raw_events else 0.0,
+            "subjects": unique_subjects,
+            "subjects_count": len(unique_subjects),
+            "first_active": raw_events[-1]["timestamp"],
+            "last_active": raw_events[0]["timestamp"],
+            "timeline": timeline,
+        }
+    finally:
+        conn.close()
+
+
+def export_students_csv(db_path: Optional[str] = None) -> str:
+    """
+    Exports all student profiles as RFC 4180 CSV spreadsheet.
+    """
+    students, _, _, _ = get_students_summary(limit=100000, offset=0, db_path=db_path)
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow([
+        "Roll Number",
+        "Student Name",
+        "Class",
+        "Batch",
+        "Semester",
+        "Total Compilations",
+        "Successful Compilations",
+        "Failed Compilations",
+        "Total Experiments Processed",
+        "Unique Subjects Count",
+        "Subjects Enrolled",
+        "First Active (UTC)",
+        "Last Active (UTC)",
+    ])
+
+    for s in students:
+        writer.writerow([
+            _sanitize_csv_cell(s["roll_no"]),
+            _sanitize_csv_cell(s["student_name"]),
+            _sanitize_csv_cell(s["class_name"]),
+            _sanitize_csv_cell(s["batch"]),
+            _sanitize_csv_cell(s["sem"]),
+            _sanitize_csv_cell(s["total_compilations"]),
+            _sanitize_csv_cell(s["successful_compilations"]),
+            _sanitize_csv_cell(s["failed_compilations"]),
+            _sanitize_csv_cell(s["total_experiments"]),
+            _sanitize_csv_cell(s["subjects_count"]),
+            _sanitize_csv_cell(" | ".join(s["subjects"])),
+            _sanitize_csv_cell(s["first_active"]),
+            _sanitize_csv_cell(s["last_active"]),
+        ])
+
+    return output.getvalue()
+
+
 # ── Extraction Diagnostics & Ground-Truth Format Discovery ────────────────────
 
 def record_upload_diagnostic(
@@ -656,27 +931,81 @@ def get_failed_or_discrepant_samples(
     """
     Returns documents where extraction failed or where students corrected the title.
     """
+    docs, total, _ = get_failed_aim_documents(limit=limit, offset=offset, db_path=db_path)
+    return docs, total
+
+
+def get_failed_aim_documents(
+    query: Optional[str] = None,
+    reason: Optional[str] = None,
+    method: Optional[str] = None,
+    discrepancy_only: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+    db_path: Optional[str] = None,
+) -> Tuple[List[Dict[str, Any]], int, Dict[str, Any]]:
+    """
+    Queries documents where extraction failed or where students corrected the extracted title.
+    Supports search by filename/aim, filter by failure reason, and filter by extraction method.
+    Returns (documents_list, total_count, summary_stats).
+    """
+    init_analytics_db(db_path)
     conn = get_db_connection(db_path)
     try:
         cur = conn.cursor()
-        cur.execute("""
-            SELECT COUNT(*) FROM extraction_diagnostics
-            WHERE discrepancy = 1 OR failure_reason != 'none';
-        """)
-        total = cur.fetchone()[0]
+        summary = get_extraction_diagnostics_summary(db_path)
 
-        cur.execute("""
-            SELECT sha256, filename, file_size, pages, extracted_aim,
-                   extracted_exp_num, extraction_method, failure_reason,
-                   student_submitted_title, student_submitted_num,
-                   discrepancy, text_snippet, uploaded_at, is_sample_preserved
+        conditions = []
+        params: List[Any] = []
+
+        if discrepancy_only:
+            conditions.append("discrepancy = 1")
+        else:
+            conditions.append("(discrepancy = 1 OR failure_reason != 'none')")
+
+        if query:
+            q_clean = f"%{query.strip()}%"
+            conditions.append("(filename LIKE ? OR extracted_aim LIKE ? OR student_submitted_title LIKE ?)")
+            params.extend([q_clean, q_clean, q_clean])
+
+        if reason and reason.lower() != "all":
+            conditions.append("failure_reason = ?")
+            params.append(reason.strip())
+
+        if method and method.lower() != "all":
+            conditions.append("extraction_method = ?")
+            params.append(method.strip())
+
+        where_clause = "WHERE " + " AND ".join(conditions)
+
+        cur.execute(f"SELECT COUNT(*) as total FROM extraction_diagnostics {where_clause};", params)
+        total_count = cur.fetchone()["total"]
+
+        query_params = list(params) + [limit, offset]
+        cur.execute(f"""
+            SELECT
+                sha256,
+                filename,
+                file_size,
+                pages,
+                extracted_aim,
+                extracted_exp_num,
+                extraction_method,
+                failure_reason,
+                student_submitted_title,
+                student_submitted_num,
+                discrepancy,
+                text_snippet,
+                uploaded_at,
+                is_sample_preserved
             FROM extraction_diagnostics
-            WHERE discrepancy = 1 OR failure_reason != 'none'
+            {where_clause}
             ORDER BY uploaded_at DESC
             LIMIT ? OFFSET ?;
-        """, (limit, offset))
-        rows = [dict(r) for r in cur.fetchall()]
-        return rows, total
+        """, query_params)
+
+        docs = [dict(r) for r in cur.fetchall()]
+        return docs, total_count, summary
     finally:
         conn.close()
 

@@ -33,6 +33,10 @@ from .analytics import (
     record_student_ground_truth,
     get_extraction_diagnostics_summary,
     get_failed_or_discrepant_samples,
+    get_failed_aim_documents,
+    get_students_summary,
+    get_student_detail,
+    export_students_csv,
     get_protected_hashes_set,
 )
 
@@ -58,5 +62,9 @@ __all__ = [
     "record_student_ground_truth",
     "get_extraction_diagnostics_summary",
     "get_failed_or_discrepant_samples",
+    "get_failed_aim_documents",
+    "get_students_summary",
+    "get_student_detail",
+    "export_students_csv",
     "get_protected_hashes_set",
 ]

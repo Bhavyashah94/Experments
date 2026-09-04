@@ -17,7 +17,7 @@ import {
   ZoomIn,
   ZoomOut,
   X,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 const emit = defineEmits<{
   (e: 'close'): void

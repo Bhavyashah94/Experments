@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { batchUpload, isUploading, uploadError } from '../../store/labStore'
-import { Upload, Loader2, AlertCircle } from 'lucide-vue-next'
+import { Upload, Loader2, AlertCircle } from '@lucide/vue'
 
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const isDragging = ref(false)

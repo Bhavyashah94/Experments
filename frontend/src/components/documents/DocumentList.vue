@@ -27,7 +27,7 @@ import {
   ChevronDown,
   Check,
   Edit2,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 const dragStartIndex = ref<number | null>(null)
 const isDropdownOpen = ref(false)
@@ -96,20 +96,20 @@ onUnmounted(() => {
 <template>
   <div class="space-y-3.5">
     <!-- Clean Unified Toolbar (Subject Dropdown + Actions) -->
-    <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-wrap items-center justify-between gap-2.5">
       <!-- Left: Subject Dropdown Menu & Share -->
-      <div class="flex items-center gap-2" ref="dropdownRef">
+      <div class="flex items-center gap-2 min-w-0" ref="dropdownRef">
         <!-- Subject Dropdown Trigger -->
-        <div class="relative">
+        <div class="relative min-w-0">
           <button
             type="button"
             @click.stop="isDropdownOpen = !isDropdownOpen"
-            class="inline-flex items-center gap-2 bg-card hover:bg-input border border-edge hover:border-edge-hi text-hi font-semibold text-xs sm:text-sm px-3 py-1.5 rounded-xl transition shadow-sm cursor-pointer"
+            class="inline-flex items-center gap-1.5 sm:gap-2 bg-card hover:bg-input border border-edge hover:border-edge-hi text-hi font-semibold text-xs sm:text-sm px-2.5 sm:px-3 py-1.5 rounded-xl transition shadow-sm cursor-pointer min-w-0 max-w-[150px] sm:max-w-[220px]"
             title="Switch or manage subjects"
           >
             <BookOpen class="w-3.5 h-3.5 text-amber shrink-0" />
-            <span class="truncate max-w-[180px] sm:max-w-[260px]">{{ student.subject || 'Untitled Subject' }}</span>
-            <ChevronDown class="w-3.5 h-3.5 text-mid transition-transform" :class="{ 'rotate-180': isDropdownOpen }" />
+            <span class="truncate">{{ student.subject || 'Untitled Subject' }}</span>
+            <ChevronDown class="w-3.5 h-3.5 text-mid transition-transform shrink-0" :class="{ 'rotate-180': isDropdownOpen }" />
           </button>
 
           <!-- Simple Subject Dropdown Menu -->
@@ -210,63 +210,65 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Document Count Pill -->
-        <span class="text-xs text-mid font-medium">
-          {{ experiments.length }} doc{{ experiments.length === 1 ? '' : 's' }}
-        </span>
+        <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <!-- Document Count Pill -->
+          <span class="text-xs text-mid font-mono px-2 py-0.5 rounded bg-input border border-edge">
+            {{ experiments.length }} doc{{ experiments.length === 1 ? '' : 's' }}
+          </span>
 
-        <!-- Share Syllabus Button -->
-        <button
-          type="button"
-          @click="isShareOpen = true"
-          class="inline-flex items-center gap-1 text-xs text-mid hover:text-hi bg-card border border-edge hover:border-edge-hi px-2.5 py-1.5 rounded-lg transition cursor-pointer"
-          title="Share this subject's syllabus with classmates"
-        >
-          <Share2 class="w-3.5 h-3.5 text-amber" />
-          <span class="hidden sm:inline">Share</span>
-        </button>
+          <!-- Share Syllabus Button -->
+          <button
+            type="button"
+            @click="isShareOpen = true"
+            class="inline-flex items-center gap-1 text-xs text-mid hover:text-hi bg-card border border-edge hover:border-edge-hi px-2 sm:px-2.5 py-1 rounded-lg transition cursor-pointer"
+            title="Share this subject's syllabus with classmates"
+          >
+            <Share2 class="w-3.5 h-3.5 text-amber" />
+            <span class="hidden sm:inline">Share</span>
+          </button>
+        </div>
       </div>
 
       <!-- Right: Document Actions -->
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <!-- Renumber 1..N -->
         <button
           type="button"
           @click="renumberExperiments"
-          class="inline-flex items-center gap-1 text-xs text-mid hover:text-hi px-2.5 py-1.5 rounded-lg hover:bg-card transition cursor-pointer"
+          class="inline-flex items-center gap-1 text-xs text-mid hover:text-hi p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-card border border-edge/40 sm:border-transparent transition cursor-pointer"
           title="Renumber cards sequentially from 1 to N"
         >
           <ListOrdered class="w-3.5 h-3.5" />
-          <span class="hidden sm:inline">Renumber 1..N</span>
+          <span class="hidden 2xl:inline">Renumber 1..N</span>
         </button>
 
         <!-- Toggle All Cards -->
         <button
           type="button"
           @click="toggleAllCards"
-          class="inline-flex items-center gap-1 text-xs text-mid hover:text-hi px-2.5 py-1.5 rounded-lg hover:bg-card transition cursor-pointer"
+          class="inline-flex items-center gap-1 text-xs text-mid hover:text-hi p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-card border border-edge/40 sm:border-transparent transition cursor-pointer"
           title="Expand or collapse all experiment cards"
         >
           <ChevronsUpDown class="w-3.5 h-3.5" />
-          <span class="hidden sm:inline">Toggle All</span>
+          <span class="hidden 2xl:inline">Toggle All</span>
         </button>
 
         <!-- Clear All -->
         <button
           type="button"
           @click="resetWorkspace"
-          class="inline-flex items-center gap-1 text-xs text-mid hover:text-danger px-2.5 py-1.5 rounded-lg hover:bg-card transition cursor-pointer"
+          class="inline-flex items-center gap-1 text-xs text-mid hover:text-danger p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-card border border-edge/40 sm:border-transparent transition cursor-pointer"
           title="Clear all cards from workspace"
         >
           <Trash2 class="w-3.5 h-3.5" />
-          <span class="hidden sm:inline">Clear All</span>
+          <span class="hidden 2xl:inline">Clear All</span>
         </button>
 
         <!-- Add Empty Card -->
         <button
           type="button"
           @click="addDocument"
-          class="inline-flex items-center gap-1 bg-amber hover:bg-amber-hi text-surface font-semibold px-3 py-1.5 rounded-lg text-xs transition cursor-pointer shadow-sm"
+          class="inline-flex items-center gap-1 bg-amber hover:bg-amber-hi text-surface font-semibold px-2.5 sm:px-3 py-1.5 rounded-lg text-xs transition cursor-pointer shadow-sm"
           title="Add a manual experiment card"
         >
           <Plus class="w-3.5 h-3.5" />

@@ -22,7 +22,7 @@ import {
   ChevronRight,
   Loader2,
   FileUp,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 const props = defineProps<{
   doc: ExperimentItem
@@ -83,7 +83,7 @@ function applySnippet() {
 
     <!-- Accordion Header -->
     <div
-      class="flex items-center gap-2.5 px-4 py-3 cursor-pointer hover:bg-input select-none transition-all"
+      class="flex items-center gap-1.5 sm:gap-2.5 px-3 sm:px-4 py-2.5 sm:py-3 cursor-pointer hover:bg-input select-none transition-all"
       :class="{ 'bg-input/60 ring-1 ring-amber/30': selectedId === doc.id }"
       @click="doc.isOpen = !doc.isOpen; selectedId = doc.id"
     >
@@ -93,14 +93,14 @@ function applySnippet() {
         @click.stop
         title="Drag to reorder card"
       >
-        <GripVertical class="w-4 h-4 pointer-events-none" />
+        <GripVertical class="w-3.5 h-3.5 sm:w-4 sm:h-4 pointer-events-none" />
       </div>
 
       <!-- Exp / Assign Type Badge -->
       <button
         type="button"
         @click.stop="doc.is_assignment = !doc.is_assignment"
-        class="text-xs font-mono font-bold px-2 py-0.5 rounded border transition shrink-0 cursor-pointer"
+        class="text-[11px] sm:text-xs font-mono font-bold px-1.5 sm:px-2 py-0.5 rounded border transition shrink-0 cursor-pointer"
         :class="doc.is_assignment ? 'bg-amber-dim/30 text-amber border-amber/40' : 'bg-input border-edge text-hi'"
         title="Click to toggle between Experiment and Assignment"
       >
@@ -109,17 +109,17 @@ function applySnippet() {
 
       <!-- Label Number Input -->
       <div class="flex items-center gap-1 shrink-0" @click.stop>
-        <span class="text-xs text-mid">No.</span>
+        <span class="text-[11px] sm:text-xs text-mid">No.</span>
         <input
           v-model="doc.label"
           type="text"
-          class="w-10 bg-input border border-edge rounded px-1.5 py-0.5 text-xs text-hi text-center font-mono outline-none focus:border-amber"
+          class="w-8 sm:w-10 bg-input border border-edge rounded px-1 sm:px-1.5 py-0.5 text-xs text-hi text-center font-mono outline-none focus:border-amber"
         />
       </div>
 
       <!-- Title Preview Text -->
       <span
-        class="flex-1 text-xs truncate"
+        class="flex-1 min-w-0 text-xs truncate"
         :class="doc.title ? 'text-hi font-medium' : 'italic text-lo'"
       >
         {{ doc.title || 'Untitled Document' }}
@@ -134,11 +134,11 @@ function applySnippet() {
       </span>
 
       <!-- Action Buttons -->
-      <div class="flex items-center gap-1.5 shrink-0" @click.stop>
+      <div class="flex items-center gap-1 sm:gap-1.5 shrink-0" @click.stop>
         <button
           type="button"
           @click="openPreview(doc)"
-          class="inline-flex items-center gap-1 text-xs text-mid hover:text-hi bg-input border border-edge hover:border-edge-hi px-2.5 py-1 rounded-lg transition cursor-pointer"
+          class="inline-flex items-center gap-1 text-xs text-mid hover:text-hi bg-input border border-edge hover:border-edge-hi p-1.5 sm:px-2.5 sm:py-1 rounded-lg transition cursor-pointer"
           title="Live preview cover page"
         >
           <Eye class="w-3.5 h-3.5" />
@@ -149,7 +149,7 @@ function applySnippet() {
           type="button"
           @click="downloadSingleExperiment(doc)"
           :disabled="isDownloading"
-          class="inline-flex items-center gap-1 text-xs text-mid hover:text-hi bg-input border border-edge hover:border-edge-hi px-2.5 py-1 rounded-lg transition disabled:opacity-50 cursor-pointer"
+          class="inline-flex items-center gap-1 text-xs text-mid hover:text-hi bg-input border border-edge hover:border-edge-hi p-1.5 sm:px-2.5 sm:py-1 rounded-lg transition disabled:opacity-50 cursor-pointer"
           title="Download single experiment with header"
         >
           <Loader2 v-if="isDownloading" class="w-3.5 h-3.5 animate-spin text-amber" />
@@ -252,15 +252,15 @@ function applySnippet() {
       <!-- Individual File Drop Area / Replace PDF -->
       <div class="max-w-xl">
         <label
-          class="border border-dashed border-edge hover:border-edge-hi bg-input hover:bg-card rounded-lg p-3 text-center cursor-pointer transition flex items-center justify-center gap-2 group"
+          class="border border-dashed border-edge hover:border-edge-hi bg-input hover:bg-card rounded-lg p-2.5 sm:p-3 text-center cursor-pointer transition flex items-center justify-center gap-2 group min-w-0"
           @dragover.prevent
           @drop.prevent="handleDrop"
           @click="triggerFileInput"
         >
-          <FileUp class="w-4 h-4 text-lo group-hover:text-hi transition" />
-          <span class="text-xs text-mid">
+          <FileUp class="w-4 h-4 text-lo group-hover:text-hi transition shrink-0" />
+          <span class="text-xs text-mid min-w-0 break-words leading-relaxed">
             <template v-if="doc.filename">
-              Attached: <strong class="text-hi">{{ doc.filename }}</strong> ({{ doc.pages }} pages) · Click to replace
+              Attached: <strong class="text-hi font-medium break-all">{{ doc.filename }}</strong> ({{ doc.pages }} {{ doc.pages === 1 ? 'page' : 'pages' }}) · <span class="text-amber hover:underline">Click to replace</span>
             </template>
             <template v-else>
               Drop body PDF file here or click to attach

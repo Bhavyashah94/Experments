@@ -1,4 +1,4 @@
-lab.bhavyashah.me, labstudio.bhavyashah.me {
+lab.bhavyashah.me {
     header {
         X-Content-Type-Options "nosniff"
         X-Frame-Options "SAMEORIGIN"

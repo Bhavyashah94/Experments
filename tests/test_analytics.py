@@ -286,3 +286,126 @@ def test_export_analytics_csv_and_json(client, test_db_path):
     assert json_data["total_records"] == 1
     assert json_data["events"][0]["student_name"] == "Alice Export"
 
+
+def test_students_summary_and_detail(client, test_db_path):
+    from lab_core.analytics import get_students_summary, get_student_detail, export_students_csv
+
+    # Record multiple events for Student A (2 compilations across 2 subjects)
+    record_generation_event(
+        student={"name": "Bhavya Shah", "roll_no": "34", "class_name": "BE IT", "batch": "I3", "subject": "Cloud Computing"},
+        experiments=[{"label": "1", "title": "AWS S3 Setup"}],
+        success=True,
+        duration_ms=120.0,
+        db_path=test_db_path,
+    )
+    record_generation_event(
+        student={"name": "Bhavya Shah", "roll_no": "34", "class_name": "BE IT", "batch": "I3", "subject": "Internet of Everything"},
+        experiments=[{"label": "1", "title": "MQTT Sensor"}, {"label": "2", "title": "ESP32 Relay"}],
+        success=True,
+        duration_ms=140.0,
+        db_path=test_db_path,
+    )
+
+    # Record event for Student B
+    record_generation_event(
+        student={"name": "Rahul Sharma", "roll_no": "45", "class_name": "BE IT", "batch": "I1", "subject": "Information Security"},
+        experiments=[{"label": "1", "title": "RSA Cryptography"}],
+        success=False,
+        duration_ms=80.0,
+        error_message="Corrupted PDF",
+        db_path=test_db_path,
+    )
+
+    # Test get_students_summary
+    students, total, classes, batches = get_students_summary(db_path=test_db_path)
+    assert total == 2
+    assert "BE IT" in classes
+    assert "I3" in batches and "I1" in batches
+
+    bhavya = next(s for s in students if s["roll_no"] == "34")
+    assert bhavya["student_name"] == "Bhavya Shah"
+    assert bhavya["total_compilations"] == 2
+    assert bhavya["successful_compilations"] == 2
+    assert bhavya["total_experiments"] == 3
+    assert len(bhavya["subjects"]) == 2
+    assert "Cloud Computing" in bhavya["subjects"]
+
+    # Test get_student_detail
+    dossier = get_student_detail(roll_no="34", db_path=test_db_path)
+    assert dossier is not None
+    assert dossier["student_name"] == "Bhavya Shah"
+    assert dossier["total_compilations"] == 2
+    assert len(dossier["timeline"]) == 2
+    assert dossier["timeline"][0]["subject"] in ("Cloud Computing", "Internet of Everything")
+
+    # Test export_students_csv
+    csv_out = export_students_csv(db_path=test_db_path)
+    assert "Roll Number,Student Name,Class,Batch" in csv_out
+    assert "34,Bhavya Shah,BE IT,I3" in csv_out
+    assert "45,Rahul Sharma,BE IT,I1" in csv_out
+
+
+def test_api_analytics_students_and_failed_aims_endpoints(client, test_db_path):
+    from lab_core.analytics import record_upload_diagnostic
+
+    # Record an event
+    record_generation_event(
+        student={"name": "Test Student", "roll_no": "10", "class_name": "TE COMP", "batch": "B2", "subject": "OS"},
+        experiments=[{"label": "1", "title": "Process Scheduling"}],
+        success=True,
+        db_path=test_db_path,
+    )
+
+    # Record diagnostic with failure
+    record_upload_diagnostic(
+        sha256="1111111111111111111111111111111111111111111111111111111111111111",
+        filename="scanned_lab.pdf",
+        file_size=1024,
+        pages=2,
+        extracted_aim=None,
+        extracted_exp_num=None,
+        extraction_method="failed",
+        failure_reason="scanned_no_text",
+        text_snippet="",
+        db_path=test_db_path,
+    )
+
+    # Record diagnostic with discrepancy
+    record_upload_diagnostic(
+        sha256="2222222222222222222222222222222222222222222222222222222222222222",
+        filename="exp2.pdf",
+        file_size=2048,
+        pages=3,
+        extracted_aim="WRONG TITLE",
+        extracted_exp_num="1",
+        extraction_method="fallback_filename",
+        failure_reason="none",
+        text_snippet="Snippet from page 1",
+        db_path=test_db_path,
+    )
+
+    # Test /api/analytics/students endpoint
+    res_students = client.get("/api/analytics/students?class_name=TE COMP")
+    assert res_students.status_code == 200
+    st_data = res_students.get_json()["data"]
+    assert st_data["total"] == 1
+    assert st_data["students"][0]["roll_no"] == "10"
+
+    # Test /api/analytics/student-detail endpoint
+    res_detail = client.get("/api/analytics/student-detail?roll_no=10")
+    assert res_detail.status_code == 200
+    assert res_detail.get_json()["data"]["student_name"] == "Test Student"
+
+    # Test /api/analytics/failed-aims endpoint
+    res_aims = client.get("/api/analytics/failed-aims")
+    assert res_aims.status_code == 200
+    aims_data = res_aims.get_json()["data"]
+    assert aims_data["total"] >= 1
+    assert any(d["filename"] == "scanned_lab.pdf" for d in aims_data["documents"])
+
+    # Test student CSV export endpoint
+    res_exp = client.get("/api/analytics/export?type=students")
+    assert res_exp.status_code == 200
+    assert "labstudio_students" in res_exp.headers.get("Content-Disposition", "")
+
+

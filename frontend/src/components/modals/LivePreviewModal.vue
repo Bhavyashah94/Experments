@@ -2,7 +2,7 @@
 import { ref, watch } from 'vue'
 import { student, isPreviewOpen, previewItem, closePreview } from '../../store/labStore'
 import { fetchCoverPreview } from '../../api/preview'
-import { X, Loader2, RefreshCw, FileText, ZoomIn, ZoomOut } from 'lucide-vue-next'
+import { X, Loader2, RefreshCw, FileText, ZoomIn, ZoomOut } from '@lucide/vue'
 
 const previewImage = ref<string | null>(null)
 const isLoading = ref(false)
