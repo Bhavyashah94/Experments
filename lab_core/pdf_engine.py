@@ -4,7 +4,7 @@ import math
 import uuid
 import base64
 import zipfile
-import fitz  # PyMuPDF
+import pymupdf as fitz
 from typing import Dict, Any, List, Optional, Tuple
 
 # Default institutional Header.pdf template path

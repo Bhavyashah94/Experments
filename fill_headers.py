@@ -3,7 +3,7 @@ import re
 import json
 import argparse
 import shutil
-import fitz  # PyMuPDF
+import pymupdf as fitz
 
 from lab_core import (
     parse_color,

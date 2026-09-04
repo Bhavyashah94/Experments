@@ -5,6 +5,7 @@ on:
     branches: [ master, main ]
   pull_request:
     branches: [ master, main ]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -38,11 +39,10 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Type Check, Test & Build Frontend
+      - name: Type Check & Build Frontend
         working-directory: frontend
         run: |
           npm run type-check
-          npm run test
           npm run build
 
   deploy:

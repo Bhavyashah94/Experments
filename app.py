@@ -106,6 +106,7 @@ HIGH_WATERMARK_BYTES = int(MAX_STORAGE_BYTES * 0.8)         # 12 GB trigger rota
 LOW_WATERMARK_BYTES = int(MAX_STORAGE_BYTES * 0.65)         # ~10 GB target clean size after rotation
 TARGET_STORAGE_BYTES = LOW_WATERMARK_BYTES                  # Alias for backward compatibility
 OUTPUT_JOBS_MAX_AGE_SECONDS = 24 * 60 * 60                  # 24 hours for compiled deliverables in output/
+TEMP_FILES_MAX_AGE_SECONDS = 2 * 60 * 60                    # 2 hours for orphaned temp uploads in uploads/
 SWEEP_EVERY_SECONDS = 30 * 60                               # 30-minute debounce window
 
 
@@ -221,6 +222,22 @@ def _cleanup_ephemeral_storage():
                         shutil.rmtree(epath, ignore_errors=True)
     except Exception as e:
         print(f"[cleanup] error sweeping output jobs: {e}")
+
+    # Sweep orphaned temporary upload files in uploads/ older than 2 hours
+    try:
+        if os.path.exists(UPLOADS_DIR):
+            for fname in os.listdir(UPLOADS_DIR):
+                if fname.startswith("temp_") and fname.endswith(".pdf"):
+                    stem = fname[5:-4]
+                    if len(stem) == 32 and all(c in "0123456789abcdefABCDEF" for c in stem):
+                        tpath = os.path.join(UPLOADS_DIR, fname)
+                        try:
+                            if (now - os.path.getmtime(tpath)) > TEMP_FILES_MAX_AGE_SECONDS:
+                                os.remove(tpath)
+                        except (OSError, FileNotFoundError):
+                            pass
+    except Exception as e:
+        print(f"[cleanup] error sweeping temp uploads: {e}")
 
     try:
         _enforce_storage_quota()

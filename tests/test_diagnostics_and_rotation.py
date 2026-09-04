@@ -2,7 +2,7 @@ import os
 import io
 import time
 import pytest
-import fitz
+import pymupdf as fitz
 from app import app, UPLOADS_DIR, OUTPUT_DIR
 from lab_core import (
     record_upload_diagnostic,
@@ -115,3 +115,104 @@ def test_protected_hashes_retention():
     )
     protected = get_protected_hashes_set()
     assert ("a" * 64) in protected
+
+
+def test_ordinary_upload_unprotected_vs_discrepancy():
+    """
+    Verifies that:
+    1. An ordinary successful upload (failure_reason='none') starts UNPROTECTED.
+    2. It is not in get_protected_hashes_set(), so storage quota Tier 2 can evict it.
+    3. When a discrepancy is submitted, it BECOMES protected.
+    """
+    clean_hash = "b" * 64
+    record_upload_diagnostic(
+        sha256=clean_hash,
+        filename="clean_sample.pdf",
+        file_size=2048,
+        pages=3,
+        extracted_aim="Original Aim",
+        extracted_exp_num="1",
+        extraction_method="aim_keyword",
+        failure_reason="none",
+        text_snippet="Sample text",
+    )
+    # 1. Must NOT be protected initially
+    assert clean_hash not in get_protected_hashes_set()
+
+    # 2. Student confirms same aim (no discrepancy)
+    record_student_ground_truth([
+        {"hash": clean_hash, "title": "Original Aim", "label": "1"}
+    ])
+    assert clean_hash not in get_protected_hashes_set()
+
+    # 3. Another upload with student correction (discrepancy)
+    discrepant_hash = "c" * 64
+    record_upload_diagnostic(
+        sha256=discrepant_hash,
+        filename="discrepant_sample.pdf",
+        file_size=2048,
+        pages=3,
+        extracted_aim="Wrong Auto Aim",
+        extracted_exp_num="2",
+        extraction_method="aim_keyword",
+        failure_reason="none",
+        text_snippet="Sample text",
+    )
+    assert discrepant_hash not in get_protected_hashes_set()
+
+    # Student corrects the title
+    record_student_ground_truth([
+        {"hash": discrepant_hash, "title": "Corrected Student Title", "label": "2"}
+    ])
+    # Now it MUST be protected
+    assert discrepant_hash in get_protected_hashes_set()
+
+
+def test_stale_temp_file_cleanup(tmp_path, monkeypatch):
+    """
+    Verifies that _cleanup_ephemeral_storage():
+    1. Deletes temp_<32hex>.pdf files older than 2 hours.
+    2. Preserves recent temp_<32hex>.pdf files.
+    3. Preserves normal <64hex>.pdf files.
+    4. Preserves unrelated files.
+    """
+    import app as main_app
+
+    test_uploads = tmp_path / "uploads"
+    test_uploads.mkdir()
+    test_output = tmp_path / "output"
+    test_output.mkdir()
+
+    monkeypatch.setattr(main_app, "UPLOADS_DIR", str(test_uploads))
+    monkeypatch.setattr(main_app, "OUTPUT_DIR", str(test_output))
+
+    now = time.time()
+
+    # 1. Stale temp file (3 hours old)
+    stale_temp = test_uploads / "temp_11112222333344445555666677778888.pdf"
+    stale_temp.write_bytes(b"%PDF-1.4 stale temp")
+    os.utime(stale_temp, (now - 10800, now - 10800))
+
+    # 2. Recent temp file (30 seconds old)
+    recent_temp = test_uploads / "temp_aaaabbbbccccddddeeeeffff00001111.pdf"
+    recent_temp.write_bytes(b"%PDF-1.4 recent temp")
+    os.utime(recent_temp, (now - 30, now - 30))
+
+    # 3. Normal upload file (64-char hash)
+    normal_pdf = test_uploads / f"{'f'*64}.pdf"
+    normal_pdf.write_bytes(b"%PDF-1.4 normal upload")
+    os.utime(normal_pdf, (now - 10800, now - 10800))
+
+    # 4. Unrelated file
+    other_file = test_uploads / "notes.txt"
+    other_file.write_text("important notes")
+
+    # Run cleanup
+    main_app._cleanup_ephemeral_storage()
+
+    # Assertions
+    assert not os.path.exists(stale_temp), "Stale temp file should have been deleted"
+    assert os.path.exists(recent_temp), "Recent temp file must be preserved"
+    assert os.path.exists(normal_pdf), "Normal upload must be preserved"
+    assert os.path.exists(other_file), "Unrelated file must be preserved"
+

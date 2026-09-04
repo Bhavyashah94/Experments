@@ -1,6 +1,6 @@
 import os
 import re
-import fitz  # PyMuPDF
+import pymupdf as fitz
 
 ROMAN_NUMERALS = {
     'i': '1',

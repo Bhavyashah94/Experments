@@ -1,5 +1,5 @@
 import math
-import fitz
+import pymupdf as fitz
 from typing import Dict, Any, List, Optional
 from .pdf_engine import parse_color
 

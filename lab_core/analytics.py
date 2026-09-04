@@ -120,7 +120,7 @@ def get_db_connection(db_path: Optional[str] = None) -> sqlite3.Connection:
                     discrepancy INTEGER DEFAULT 0,
                     text_snippet TEXT,
                     uploaded_at TEXT,
-                    is_sample_preserved INTEGER DEFAULT 1
+                    is_sample_preserved INTEGER DEFAULT 0
                 );
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_diag_method ON extraction_diagnostics(extraction_method);")
@@ -505,6 +505,7 @@ def record_upload_diagnostic(
         return
 
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    initial_preserved = 1 if (failure_reason and failure_reason != "none") else 0
     conn = None
     try:
         conn = get_db_connection(db_path)
@@ -514,7 +515,7 @@ def record_upload_diagnostic(
                     sha256, filename, file_size, pages, extracted_aim,
                     extracted_exp_num, extraction_method, failure_reason,
                     text_snippet, uploaded_at, is_sample_preserved
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(sha256) DO UPDATE SET
                     filename = excluded.filename,
                     file_size = excluded.file_size,
@@ -523,11 +524,15 @@ def record_upload_diagnostic(
                     extracted_exp_num = excluded.extracted_exp_num,
                     extraction_method = excluded.extraction_method,
                     failure_reason = excluded.failure_reason,
-                    text_snippet = excluded.text_snippet;
+                    text_snippet = excluded.text_snippet,
+                    is_sample_preserved = CASE
+                        WHEN excluded.failure_reason != 'none' THEN 1
+                        ELSE is_sample_preserved
+                    END;
             """, (
                 sha256, filename, file_size, pages, extracted_aim,
                 extracted_exp_num, extraction_method, failure_reason,
-                text_snippet, now_iso
+                text_snippet, now_iso, initial_preserved
             ))
     except Exception as e:
         logger.warning(f"Failed to record upload diagnostic: {e}")
@@ -580,9 +585,13 @@ def record_student_ground_truth(
                         UPDATE extraction_diagnostics
                         SET student_submitted_title = ?,
                             student_submitted_num = ?,
-                            discrepancy = ?
+                            discrepancy = ?,
+                            is_sample_preserved = CASE
+                                WHEN ? = 1 THEN 1
+                                ELSE is_sample_preserved
+                            END
                         WHERE sha256 = ?;
-                    """, (submitted_title, submitted_num, has_discrepancy, file_hash))
+                    """, (submitted_title, submitted_num, has_discrepancy, has_discrepancy, file_hash))
     except Exception as e:
         logger.warning(f"Failed to record student ground truth: {e}")
     finally:
