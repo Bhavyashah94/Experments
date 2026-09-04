@@ -4,7 +4,7 @@ import {
   student,
   experiments,
   selectedId,
-  openPreview,
+  openModalPreview,
 } from '../../store/labStore'
 import { fetchCoverPreview } from '../../api/preview'
 import {
@@ -192,7 +192,7 @@ onMounted(() => {
         <button
           v-if="activeItem"
           type="button"
-          @click="openPreview(activeItem)"
+          @click="openModalPreview(activeItem)"
           class="p-1 text-mid hover:text-hi hover:bg-input rounded transition cursor-pointer"
           title="Expand to modal"
         >

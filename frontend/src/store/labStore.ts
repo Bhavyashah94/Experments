@@ -125,6 +125,7 @@ export const compileError = ref<string | null>(null)
 export const deliverables = ref<GenerationDeliverables | null>(null)
 export const toastMessage = ref<string | null>(null)
 export const isPreviewOpen = ref(false)
+export const isSplitPreviewOpen = ref(true)
 export const previewItem = ref<ExperimentItem | null>(null)
 export const isGuideOpen = ref(false)
 export const isShareOpen = ref(false)
@@ -385,9 +386,28 @@ export function importSubjectPackage(jsonStr: string): { success: boolean; subje
 
 // ── Orchestration Actions ─────────────────────────────────────────────────────
 
+export function openModalPreview(item: ExperimentItem): void {
+  previewItem.value = item
+  selectedId.value = item.id
+  isPreviewOpen.value = true
+}
+
 export function openPreview(item: ExperimentItem): void {
   previewItem.value = item
   selectedId.value = item.id
+
+  // If on desktop (>= 1280px) and split preview is active, simply focus the live pane
+  if (typeof window !== 'undefined' && window.innerWidth >= 1280 && isSplitPreviewOpen.value) {
+    return
+  }
+
+  // If on desktop and split preview was closed, re-open it to show the document
+  if (typeof window !== 'undefined' && window.innerWidth >= 1280) {
+    isSplitPreviewOpen.value = true
+    return
+  }
+
+  // Otherwise (mobile/tablet), open the modal
   isPreviewOpen.value = true
 }
 

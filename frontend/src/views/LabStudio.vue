@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { isGuideOpen, toastMessage, undoStack, undoRemove } from '../store/labStore'
+import { isGuideOpen, toastMessage, undoStack, undoRemove, isSplitPreviewOpen } from '../store/labStore'
 import StudentProfileCard from '../components/sidebar/StudentProfileCard.vue'
 import ColorOptionsCard from '../components/sidebar/ColorOptionsCard.vue'
 import DateScheduleCard from '../components/sidebar/DateScheduleCard.vue'
@@ -16,7 +16,6 @@ import { HelpCircle, Undo2, PanelRightClose, PanelRightOpen } from 'lucide-vue-n
 const DEFAULT_PREVIEW_WIDTH = 520
 const MIN_PREVIEW_WIDTH = 380
 
-const showInspector = ref(true)
 const previewWidth = ref(
   parseInt(localStorage.getItem('labstudio_preview_width') || String(DEFAULT_PREVIEW_WIDTH), 10)
 )
@@ -78,15 +77,15 @@ function resetPreviewWidth() {
         <!-- Big Screen Live Preview Split-Pane Toggle -->
         <button
           type="button"
-          @click="showInspector = !showInspector"
+          @click="isSplitPreviewOpen = !isSplitPreviewOpen"
           class="hidden xl:inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition cursor-pointer"
-          :class="showInspector
+          :class="isSplitPreviewOpen
             ? 'bg-amber text-surface border-amber font-semibold shadow-sm hover:bg-amber-hi'
             : 'text-mid hover:text-hi hover:bg-input border-edge'"
-          :title="showInspector ? 'Hide Preview Split Pane' : 'Open Preview Split Pane'"
+          :title="isSplitPreviewOpen ? 'Hide Preview Split Pane' : 'Open Preview Split Pane'"
         >
-          <component :is="showInspector ? PanelRightClose : PanelRightOpen" class="w-3.5 h-3.5" />
-          <span>{{ showInspector ? 'Split Preview On' : 'Split Preview' }}</span>
+          <component :is="isSplitPreviewOpen ? PanelRightClose : PanelRightOpen" class="w-3.5 h-3.5" />
+          <span>{{ isSplitPreviewOpen ? 'Split Preview On' : 'Split Preview' }}</span>
         </button>
 
         <button
@@ -159,7 +158,7 @@ function resetPreviewWidth() {
 
       <!-- Draggable Splitter Divider (Between Workspace and Preview) -->
       <div
-        v-if="showInspector"
+        v-if="isSplitPreviewOpen"
         @mousedown="onResizeStart"
         @dblclick="resetPreviewWidth"
         class="hidden xl:flex items-center justify-center relative select-none z-20 cursor-col-resize group shrink-0 w-2 -ml-1 bg-transparent hover:bg-amber/20 transition-colors"
@@ -175,11 +174,11 @@ function resetPreviewWidth() {
 
       <!-- 2. The Dedicated A4 Preview Pane Sidecar (Draggable Width) -->
       <section
-        v-if="showInspector"
+        v-if="isSplitPreviewOpen"
         class="hidden xl:flex shrink-0 border-l border-edge bg-[#0d0d0f] flex-col overflow-hidden"
         :style="{ width: `${previewWidth}px` }"
       >
-        <LivePreviewInspector @close="showInspector = false" />
+        <LivePreviewInspector @close="isSplitPreviewOpen = false" />
       </section>
     </div>
 
