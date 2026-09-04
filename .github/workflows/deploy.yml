@@ -59,7 +59,8 @@ jobs:
           key: ${{ secrets.ORACLE_SSH_KEY }}
           script: |
             cd /home/ubuntu/Experments
-            git pull origin master || git pull origin main
+            git fetch origin master
+            git reset --hard origin/master
             mkdir -p data uploads output
             sudo chown -R 1000:1000 data uploads output
             docker compose up -d --build
