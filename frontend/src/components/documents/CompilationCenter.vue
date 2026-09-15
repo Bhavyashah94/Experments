@@ -2,12 +2,12 @@
 import {
   experiments,
   isReadyToCompile,
+  isStudentComplete,
   isCompiling,
   deliverables,
   compileJournal,
   downloadCombinedPdf,
   downloadZipPackage,
-  unextractedCount,
 } from '../../store/labStore'
 import { Layers, Loader2, CheckCircle2, FileText, FolderArchive } from '@lucide/vue'
 </script>
@@ -20,8 +20,8 @@ import { Layers, Loader2, CheckCircle2, FileText, FolderArchive } from '@lucide/
       class="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-card border border-edge shadow-sm transition-all select-none"
     >
       <div class="text-xs text-mid flex items-center gap-2 min-w-0">
-        <span v-if="unextractedCount > 0" class="text-warn font-medium truncate">
-          {{ unextractedCount }} {{ unextractedCount === 1 ? 'card needs an aim title' : 'cards need aim titles' }}
+        <span v-if="!isStudentComplete" class="text-warn font-medium truncate">
+          Fill in student details to compile
         </span>
         <span v-else class="truncate text-hi/80">
           Ready to compile <strong class="text-hi font-semibold">{{ experiments.length }}</strong> {{ experiments.length === 1 ? 'document' : 'documents' }} with cover pages.

@@ -185,7 +185,9 @@ export const compileError = ref<string | null>(null)
 export const deliverables = ref<GenerationDeliverables | null>(null)
 export const toastMessage = ref<string | null>(null)
 export const isPreviewOpen = ref(false)
-export const isSplitPreviewOpen = ref(true)
+export const isSplitPreviewOpen = ref(
+  typeof window !== 'undefined' ? window.innerWidth >= 1536 : false
+)
 export const previewItem = ref<ExperimentItem | null>(null)
 export const isGuideOpen = ref(false)
 export const isShareOpen = ref(false)
@@ -233,7 +235,7 @@ export const hasAnyDates = computed(() => {
 })
 
 export const isReadyToCompile = computed(() => {
-  return isStudentComplete.value && experiments.value.length > 0 && unextractedCount.value === 0
+  return isStudentComplete.value && experiments.value.length > 0
 })
 
 // ── Toast Helper ──────────────────────────────────────────────────────
@@ -614,18 +616,18 @@ export function openPreview(item: ExperimentItem): void {
   previewItem.value = item
   selectedId.value = item.id
 
-  // If on desktop (>= 1280px) and split preview is active, simply focus the live pane
-  if (typeof window !== 'undefined' && window.innerWidth >= 1280 && isSplitPreviewOpen.value) {
+  // If on widescreen (>= 1536px) and split preview is active, simply focus the live pane
+  if (typeof window !== 'undefined' && window.innerWidth >= 1536 && isSplitPreviewOpen.value) {
     return
   }
 
-  // If on desktop and split preview was closed, re-open it to show the document
-  if (typeof window !== 'undefined' && window.innerWidth >= 1280) {
+  // If on widescreen and split preview was closed, re-open it to show the document
+  if (typeof window !== 'undefined' && window.innerWidth >= 1536) {
     isSplitPreviewOpen.value = true
     return
   }
 
-  // Otherwise (mobile/tablet), open the modal
+  // Otherwise (desktop/tablet/mobile < 1536px), open the modal
   isPreviewOpen.value = true
 }
 

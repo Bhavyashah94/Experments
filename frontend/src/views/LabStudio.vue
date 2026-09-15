@@ -13,7 +13,7 @@ import ProfileShareModal from '../components/modals/ProfileShareModal.vue'
 import LivePreviewInspector from '../components/preview/LivePreviewInspector.vue'
 import { HelpCircle, Undo2, PanelRightClose, PanelRightOpen } from '@lucide/vue'
 
-const DEFAULT_PREVIEW_WIDTH = 520
+const DEFAULT_PREVIEW_WIDTH = 480
 const MIN_PREVIEW_WIDTH = 380
 
 const previewWidth = ref(
@@ -32,7 +32,7 @@ function onResizeStart(e: MouseEvent) {
 
   function onMouseMove(moveEvent: MouseEvent) {
     const delta = startX.value - moveEvent.clientX
-    const maxWidth = Math.round(window.innerWidth * 0.55)
+    const maxWidth = Math.round(window.innerWidth * 0.45)
     const newWidth = Math.max(MIN_PREVIEW_WIDTH, Math.min(maxWidth, startWidth.value + delta))
     previewWidth.value = Math.round(newWidth)
   }
@@ -78,7 +78,7 @@ function resetPreviewWidth() {
         <button
           type="button"
           @click="isSplitPreviewOpen = !isSplitPreviewOpen"
-          class="hidden xl:inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition cursor-pointer"
+          class="hidden 2xl:inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition cursor-pointer"
           :class="isSplitPreviewOpen
             ? 'bg-amber text-surface border-amber font-semibold shadow-sm hover:bg-amber-hi'
             : 'text-mid hover:text-hi hover:bg-input border-edge'"
@@ -186,7 +186,7 @@ function resetPreviewWidth() {
         v-if="isSplitPreviewOpen"
         @mousedown="onResizeStart"
         @dblclick="resetPreviewWidth"
-        class="hidden xl:flex items-center justify-center relative select-none z-20 cursor-col-resize group shrink-0 w-2 -ml-1 bg-transparent hover:bg-amber/20 transition-colors"
+        class="hidden 2xl:flex items-center justify-center relative select-none z-20 cursor-col-resize group shrink-0 w-2 -ml-1 bg-transparent hover:bg-amber/20 transition-colors"
         :class="{ 'bg-amber/30': isDragging }"
         title="Drag to resize preview • Double-click to reset"
       >
@@ -200,7 +200,7 @@ function resetPreviewWidth() {
       <!-- 2. The Dedicated A4 Preview Pane Sidecar (Draggable Width) -->
       <section
         v-if="isSplitPreviewOpen"
-        class="hidden xl:flex shrink-0 border-l border-edge bg-[#0d0d0f] flex-col overflow-hidden"
+        class="hidden 2xl:flex shrink-0 border-l border-edge bg-[#0d0d0f] flex-col overflow-hidden"
         :style="{ width: `${previewWidth}px` }"
       >
         <LivePreviewInspector @close="isSplitPreviewOpen = false" />

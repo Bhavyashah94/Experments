@@ -289,7 +289,7 @@ onUnmounted(() => {
         No documents added yet
       </h4>
       <p class="text-xs text-mid max-w-sm mx-auto mb-4">
-        Drop your experiment PDFs in the bulk upload box on the left, or add an empty card to start typing manually.
+        Drop your experiment PDFs in the bulk upload box, or add an empty card to start typing manually.
       </p>
       <button
         type="button"

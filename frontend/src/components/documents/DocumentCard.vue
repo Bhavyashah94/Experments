@@ -128,7 +128,7 @@ function applySnippet() {
       <!-- Page Count Badge -->
       <span
         v-if="doc.pages > 0"
-        class="text-[11px] font-mono text-mid bg-input border border-edge px-2 py-0.5 rounded shrink-0 hidden sm:inline-block"
+        class="text-[11px] font-mono text-mid bg-input border border-edge px-2 py-0.5 rounded shrink-0 hidden md:inline-block"
       >
         {{ doc.pages }} {{ doc.pages === 1 ? 'page' : 'pages' }}
       </span>
@@ -138,29 +138,29 @@ function applySnippet() {
         <button
           type="button"
           @click="openPreview(doc)"
-          class="inline-flex items-center gap-1 text-xs text-mid hover:text-hi bg-input border border-edge hover:border-edge-hi p-1.5 sm:px-2.5 sm:py-1 rounded-lg transition cursor-pointer"
+          class="inline-flex items-center gap-1 text-xs text-mid hover:text-hi bg-input border border-edge hover:border-edge-hi p-1.5 sm:px-2.5 sm:py-1 rounded-lg transition cursor-pointer whitespace-nowrap shrink-0"
           title="Live preview cover page"
         >
-          <Eye class="w-3.5 h-3.5" />
-          <span class="hidden sm:inline">Preview</span>
+          <Eye class="w-3.5 h-3.5 shrink-0" />
+          <span class="hidden md:inline">Preview</span>
         </button>
 
         <button
           type="button"
           @click="downloadSingleExperiment(doc)"
           :disabled="isDownloading"
-          class="inline-flex items-center gap-1 text-xs text-mid hover:text-hi bg-input border border-edge hover:border-edge-hi p-1.5 sm:px-2.5 sm:py-1 rounded-lg transition disabled:opacity-50 cursor-pointer"
+          class="inline-flex items-center gap-1 text-xs text-mid hover:text-hi bg-input border border-edge hover:border-edge-hi p-1.5 sm:px-2.5 sm:py-1 rounded-lg transition disabled:opacity-50 cursor-pointer whitespace-nowrap shrink-0"
           title="Download single experiment with header"
         >
-          <Loader2 v-if="isDownloading" class="w-3.5 h-3.5 animate-spin text-amber" />
-          <Download v-else class="w-3.5 h-3.5" />
-          <span class="hidden sm:inline">Download</span>
+          <Loader2 v-if="isDownloading" class="w-3.5 h-3.5 animate-spin text-amber shrink-0" />
+          <Download v-else class="w-3.5 h-3.5 shrink-0" />
+          <span class="hidden md:inline">Download</span>
         </button>
 
         <button
           type="button"
           @click="removeExperimentFromManifest(doc.id)"
-          class="p-1.5 text-lo hover:text-danger rounded-lg hover:bg-edge transition cursor-pointer"
+          class="p-1.5 text-lo hover:text-danger rounded-lg hover:bg-edge transition cursor-pointer shrink-0"
           title="Remove document card"
         >
           <Trash2 class="w-3.5 h-3.5" />
@@ -209,7 +209,7 @@ function applySnippet() {
       <!-- Dates Row (Ergonomic max-w constraint) -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
         <div>
-          <div class="flex items-center justify-between mb-1.5">
+          <div class="flex flex-wrap items-center justify-between gap-1 mb-1.5">
             <label class="block text-[11px] font-medium text-mid uppercase tracking-wider">
               Performance Date
             </label>
@@ -217,7 +217,7 @@ function applySnippet() {
               v-if="index > 0"
               type="button"
               @click="handleSameAsPrevious"
-              class="text-[10px] text-amber hover:text-amber-hi underline cursor-pointer"
+              class="text-[10px] text-amber hover:text-amber-hi underline cursor-pointer shrink-0"
             >
               = Same as Exp {{ experiments[index - 1]?.label || index }}
             </button>
@@ -229,14 +229,14 @@ function applySnippet() {
         </div>
 
         <div>
-          <div class="flex items-center justify-between mb-1.5">
+          <div class="flex flex-wrap items-center justify-between gap-1 mb-1.5">
             <label class="block text-[11px] font-medium text-mid uppercase tracking-wider">
               Submission Date
             </label>
             <button
               type="button"
               @click="suggestSubDate"
-              class="text-[10px] text-amber hover:text-amber-hi underline cursor-pointer"
+              class="text-[10px] text-amber hover:text-amber-hi underline cursor-pointer shrink-0"
             >
               +7d suggested
             </button>
