@@ -33,6 +33,7 @@ import {
   getFailedAims,
   getExportDownloadUrl,
   getSampleDownloadUrl,
+  logoutAdmin,
   type AnalyticsSummary,
   type StudentSummaryItem,
   type StudentDossier,
@@ -225,7 +226,12 @@ async function handleLogin(): Promise<void> {
   }
 }
 
-function handleLogout(): void {
+async function handleLogout(): Promise<void> {
+  try {
+    await logoutAdmin()
+  } catch {
+    // Ignore error
+  }
   setStoredToken('')
   isAuthenticated.value = false
   passwordInput.value = ''
@@ -404,7 +410,7 @@ onUnmounted(() => {
           </button>
           <div class="absolute right-0 top-full mt-1 w-48 rounded-xl bg-card border border-edge shadow-xl py-1 hidden group-hover:block z-50">
             <a
-              :href="getExportDownloadUrl('students', 'csv')"
+              :href="getExportDownloadUrl('students', 'csv', getStoredToken())"
               target="_blank"
               class="flex items-center gap-2 px-3 py-2 text-xs text-hi hover:bg-input hover:text-amber transition"
             >
@@ -412,7 +418,7 @@ onUnmounted(() => {
               <span>Student Summary CSV</span>
             </a>
             <a
-              :href="getExportDownloadUrl('events', 'csv')"
+              :href="getExportDownloadUrl('events', 'csv', getStoredToken())"
               target="_blank"
               class="flex items-center gap-2 px-3 py-2 text-xs text-hi hover:bg-input hover:text-amber transition"
             >
@@ -420,7 +426,7 @@ onUnmounted(() => {
               <span>All Events CSV</span>
             </a>
             <a
-              :href="getExportDownloadUrl('events', 'json')"
+              :href="getExportDownloadUrl('events', 'json', getStoredToken())"
               target="_blank"
               class="flex items-center gap-2 px-3 py-2 text-xs text-hi hover:bg-input hover:text-amber transition"
             >
@@ -843,7 +849,7 @@ onUnmounted(() => {
 
             <!-- Export Students CSV Button -->
             <a
-              :href="getExportDownloadUrl('students', 'csv')"
+              :href="getExportDownloadUrl('students', 'csv', getStoredToken())"
               target="_blank"
               class="h-9 px-3.5 rounded-lg bg-input hover:bg-amber hover:text-surface border border-edge text-hi text-xs font-semibold transition flex items-center justify-center gap-1.5 shrink-0"
             >
@@ -1153,7 +1159,7 @@ onUnmounted(() => {
 
                   <!-- Download Sample PDF button -->
                   <a
-                    :href="getSampleDownloadUrl(doc.sha256)"
+                    :href="getSampleDownloadUrl(doc.sha256, getStoredToken())"
                     target="_blank"
                     class="flex items-center gap-1 px-2.5 py-1 rounded bg-amber hover:bg-amber-hi text-surface text-xs font-semibold transition"
                     title="Download raw uploaded PDF to write local parser test"

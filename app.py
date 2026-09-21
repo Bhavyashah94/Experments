@@ -678,11 +678,22 @@ def _check_analytics_auth():
     if not is_auth_required():
         return True, None
 
-    auth_header = request.headers.get("X-Analytics-Key") or request.headers.get("Authorization") or ""
-    if auth_header.startswith("Bearer "):
-        auth_header = auth_header[7:]
-    if verify_admin_password(auth_header):
-        return True, None
+    auth_candidates = [
+        request.headers.get("X-Analytics-Key"),
+        request.headers.get("Authorization"),
+        request.cookies.get("labstudio_analytics_key"),
+        request.args.get("key"),
+        request.args.get("token"),
+    ]
+    for candidate in auth_candidates:
+        if not candidate:
+            continue
+        token = str(candidate).strip()
+        if token.startswith("Bearer "):
+            token = token[7:].strip()
+        if verify_admin_password(token):
+            return True, None
+
     return False, (jsonify({"error": "Unauthorized", "auth_required": True}), 401)
 
 
@@ -712,14 +723,31 @@ def analytics_status():
 @app.route("/api/analytics/auth", methods=["POST"])
 @limiter.limit("15 per minute")
 def analytics_authenticate():
-    """Validates the admin password."""
+    """Validates the admin password and sets an authentication cookie."""
     if not is_analytics_enabled():
         return jsonify({"error": "Analytics is disabled"}), 404
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     candidate = data.get("password") or request.headers.get("X-Analytics-Key") or ""
     if verify_admin_password(candidate):
-        return jsonify({"valid": True, "auth_required": is_auth_required()})
+        resp = jsonify({"valid": True, "auth_required": is_auth_required()})
+        resp.set_cookie(
+            "labstudio_analytics_key",
+            candidate,
+            httponly=True,
+            samesite="Lax",
+            path="/",
+            max_age=30 * 86400,
+        )
+        return resp
     return jsonify({"valid": False, "error": "Invalid admin password"}), 401
+
+
+@app.route("/api/analytics/logout", methods=["POST", "GET"])
+def analytics_logout():
+    """Clears the admin analytics session cookie."""
+    resp = jsonify({"success": True})
+    resp.delete_cookie("labstudio_analytics_key", path="/")
+    return resp
 
 
 @app.route("/api/analytics/summary", methods=["GET"])

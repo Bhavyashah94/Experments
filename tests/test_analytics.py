@@ -199,6 +199,63 @@ def test_analytics_api_endpoints_protected_with_password(client, test_db_path):
     assert res.status_code == 200
     assert res.get_json()["success"] is True
 
+    # Accessing summary with query param -> 200
+    res = client.get("/api/analytics/summary?key=admin_pass_99")
+    assert res.status_code == 200
+    assert res.get_json()["success"] is True
+
+    del os.environ["ANALYTICS_ADMIN_PASSWORD"]
+
+
+def test_analytics_cookie_and_query_param_download_auth(client, test_db_path):
+    os.environ["ANALYTICS_ADMIN_PASSWORD"] = "sample_pass_42"
+    os.environ["ENABLE_ANALYTICS"] = "true"
+
+    dummy_hash = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+
+    # 1. Unauthenticated request to sample download -> 401
+    res = client.get(f"/api/analytics/sample/{dummy_hash}")
+    assert res.status_code == 401
+    assert res.get_json()["auth_required"] is True
+
+    # 2. Query param key -> 404 (authorized, file doesn't exist on disk) NOT 401
+    res = client.get(f"/api/analytics/sample/{dummy_hash}?key=sample_pass_42")
+    assert res.status_code == 404
+    assert res.get_json()["error"] == "Sample PDF not found on disk"
+
+    # Query param wrong key -> 401
+    res = client.get(f"/api/analytics/sample/{dummy_hash}?key=wrong_pass")
+    assert res.status_code == 401
+
+    # 3. Export with query param key -> 200
+    res = client.get("/api/analytics/export?type=students&key=sample_pass_42")
+    assert res.status_code == 200
+    assert "labstudio_students" in res.headers.get("Content-Disposition", "")
+
+    # Export with invalid query param key -> 401
+    res = client.get("/api/analytics/export?type=students&key=invalid")
+    assert res.status_code == 401
+
+    # 4. Login via /api/analytics/auth sets HttpOnly session cookie
+    res = client.post("/api/analytics/auth", json={"password": "sample_pass_42"})
+    assert res.status_code == 200
+    set_cookie = res.headers.get("Set-Cookie", "")
+    assert "labstudio_analytics_key" in set_cookie
+
+    # Client now sends cookie automatically -> sample download is authorized (404 not 401)
+    res = client.get(f"/api/analytics/sample/{dummy_hash}")
+    assert res.status_code == 404
+
+    # 5. Logout clears the cookie
+    res = client.post("/api/analytics/logout")
+    assert res.status_code == 200
+    set_cookie_logout = res.headers.get("Set-Cookie", "")
+    assert "labstudio_analytics_key" in set_cookie_logout
+
+    # After logout, accessing without key -> 401
+    res = client.get(f"/api/analytics/sample/{dummy_hash}")
+    assert res.status_code == 401
+
     del os.environ["ANALYTICS_ADMIN_PASSWORD"]
 
 

@@ -292,11 +292,30 @@ export async function getFailedAims(params: GetFailedAimsParams = {}, token?: st
   return res.data
 }
 
-export function getExportDownloadUrl(type: 'students' | 'events', format: 'csv' | 'json' = 'csv'): string {
+export function getExportDownloadUrl(type: 'students' | 'events', format: 'csv' | 'json' = 'csv', token?: string): string {
   const query = new URLSearchParams({ type, format })
+  const effectiveToken = token !== undefined ? token : (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('labstudio_analytics_admin_key') || '' : '')
+  if (effectiveToken) {
+    query.set('key', effectiveToken)
+  }
   return `/api/analytics/export?${query.toString()}`
 }
 
-export function getSampleDownloadUrl(hash: string): string {
+export function getSampleDownloadUrl(hash: string, token?: string): string {
+  const effectiveToken = token !== undefined ? token : (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('labstudio_analytics_admin_key') || '' : '')
+  if (effectiveToken) {
+    return `/api/analytics/sample/${hash}?key=${encodeURIComponent(effectiveToken)}`
+  }
   return `/api/analytics/sample/${hash}`
 }
+
+export async function logoutAdmin(): Promise<{ success: boolean }> {
+  try {
+    return await request<{ success: boolean }>('/api/analytics/logout', {
+      method: 'POST',
+    })
+  } catch {
+    return { success: true }
+  }
+}
+
