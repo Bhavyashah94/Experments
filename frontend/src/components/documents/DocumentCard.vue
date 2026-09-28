@@ -68,10 +68,42 @@ function applySnippet() {
     props.doc.title = clean.length > 100 ? clean.slice(0, 100) : clean
   }
 }
+
+// ── Header Drag & Toggle Coordination ─────────────────────────────────────
+let isDraggingHeader = false
+
+function onHeaderDragStart(e: DragEvent) {
+  const target = e.target as HTMLElement | null
+  // Do not initiate drag if user interacted with a button, input, or interactive control
+  if (target?.closest('button, input, select, a, textarea')) {
+    e.preventDefault()
+    return
+  }
+  isDraggingHeader = true
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    const cardEl = (e.currentTarget as HTMLElement)?.closest('.document-card-root') as HTMLElement | null
+    if (cardEl && e.dataTransfer.setDragImage) {
+      e.dataTransfer.setDragImage(cardEl, 24, 24)
+    }
+  }
+}
+
+function onHeaderDragEnd() {
+  setTimeout(() => {
+    isDraggingHeader = false
+  }, 100)
+}
+
+function onHeaderClick() {
+  if (isDraggingHeader) return
+  props.doc.isOpen = !props.doc.isOpen
+  selectedId.value = props.doc.id
+}
 </script>
 
 <template>
-  <div class="bg-card border border-edge rounded-xl overflow-hidden shadow-sm transition-all duration-150">
+  <div class="document-card-root bg-card border border-edge rounded-xl overflow-hidden shadow-sm transition-all duration-150">
     <!-- Hidden Replace File Input -->
     <input
       ref="replaceFileInputRef"
@@ -81,24 +113,27 @@ function applySnippet() {
       @change="handleFileInput"
     />
 
-    <!-- Accordion Header -->
+    <!-- Accordion Header (Entire bar is draggable) -->
     <div
-      class="flex items-center gap-1.5 sm:gap-2.5 px-3 sm:px-4 py-2.5 sm:py-3 cursor-pointer hover:bg-input select-none transition-all"
+      class="flex items-center gap-1.5 sm:gap-2.5 px-3 sm:px-4 py-2.5 sm:py-3 cursor-grab active:cursor-grabbing hover:bg-input select-none transition-all"
       :class="{ 'bg-input/60 ring-1 ring-amber/30': selectedId === doc.id }"
-      @click="doc.isOpen = !doc.isOpen; selectedId = doc.id"
+      draggable="true"
+      @click="onHeaderClick"
+      @dragstart="onHeaderDragStart"
+      @dragend="onHeaderDragEnd"
+      title="Click to toggle, or drag anywhere on header to reorder"
     >
-      <!-- Dedicated Drag Handle -->
+      <!-- Visual Drag Grip Handle -->
       <div
-        class="drag-handle p-1 text-lo hover:text-hi cursor-grab active:cursor-grabbing shrink-0 touch-none rounded hover:bg-edge transition"
-        @click.stop
-        title="Drag to reorder card"
+        class="drag-handle p-1 text-lo hover:text-hi shrink-0 rounded transition pointer-events-none"
       >
-        <GripVertical class="w-3.5 h-3.5 sm:w-4 sm:h-4 pointer-events-none" />
+        <GripVertical class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
       </div>
 
       <!-- Exp / Assign Type Badge -->
       <button
         type="button"
+        @mousedown.stop
         @click.stop="doc.is_assignment = !doc.is_assignment"
         class="text-[11px] sm:text-xs font-mono font-bold px-1.5 sm:px-2 py-0.5 rounded border transition shrink-0 cursor-pointer"
         :class="doc.is_assignment ? 'bg-amber-dim/30 text-amber border-amber/40' : 'bg-input border-edge text-hi'"
@@ -108,18 +143,19 @@ function applySnippet() {
       </button>
 
       <!-- Label Number Input -->
-      <div class="flex items-center gap-1 shrink-0" @click.stop>
+      <div class="flex items-center gap-1 shrink-0" @mousedown.stop @click.stop>
         <span class="text-[11px] sm:text-xs text-mid">No.</span>
         <input
           v-model="doc.label"
           type="text"
-          class="w-8 sm:w-10 bg-input border border-edge rounded px-1 sm:px-1.5 py-0.5 text-xs text-hi text-center font-mono outline-none focus:border-amber"
+          draggable="false"
+          class="w-8 sm:w-10 bg-input border border-edge rounded px-1 sm:px-1.5 py-0.5 text-xs text-hi text-center font-mono outline-none focus:border-amber cursor-text"
         />
       </div>
 
       <!-- Title Preview Text -->
       <span
-        class="flex-1 min-w-0 text-xs truncate"
+        class="flex-1 min-w-0 text-xs truncate pointer-events-none"
         :class="doc.title ? 'text-hi font-medium' : 'italic text-lo'"
       >
         {{ doc.title || 'Untitled Document' }}
@@ -128,13 +164,13 @@ function applySnippet() {
       <!-- Page Count Badge -->
       <span
         v-if="doc.pages > 0"
-        class="text-[11px] font-mono text-mid bg-input border border-edge px-2 py-0.5 rounded shrink-0 hidden md:inline-block"
+        class="text-[11px] font-mono text-mid bg-input border border-edge px-2 py-0.5 rounded shrink-0 hidden md:inline-block pointer-events-none"
       >
         {{ doc.pages }} {{ doc.pages === 1 ? 'page' : 'pages' }}
       </span>
 
       <!-- Action Buttons -->
-      <div class="flex items-center gap-1 sm:gap-1.5 shrink-0" @click.stop>
+      <div class="flex items-center gap-1 sm:gap-1.5 shrink-0" @mousedown.stop @click.stop>
         <button
           type="button"
           @click="openPreview(doc)"
@@ -168,7 +204,7 @@ function applySnippet() {
       </div>
 
       <!-- Collapse Chevron -->
-      <div class="text-lo shrink-0">
+      <div class="text-lo shrink-0 pointer-events-none">
         <ChevronDown v-if="doc.isOpen" class="w-4 h-4" />
         <ChevronRight v-else class="w-4 h-4" />
       </div>

@@ -381,9 +381,23 @@ export function switchSubject(id: string): void {
 }
 
 export function renameActiveSubject(newName: string): void {
-  student.subject = newName
+  const trimmed = newName.trim()
+  if (!trimmed) return
+  student.subject = trimmed
   if (activeSubject.value) {
-    activeSubject.value.name = newName
+    activeSubject.value.name = trimmed
+  }
+}
+
+export function renameSubject(id: string, newName: string): void {
+  const trimmed = newName.trim()
+  if (!trimmed) return
+  const target = subjects.value.find((s) => s.id === id)
+  if (target) {
+    target.name = trimmed
+    if (activeSubjectId.value === id) {
+      student.subject = trimmed
+    }
   }
 }
 
